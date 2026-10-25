@@ -1,23 +1,31 @@
 // Dashboard UI: plain JS, no build step. Talks to the JSON API in src/server.ts.
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const icon = (name, cls = '') => `<svg class="i ${cls}"><use href="#i-${name}"/></svg>`;
 
 const ELIG = {
-  worldwide: { icon: '🌍', label: 'Worldwide', tone: 'good' },
-  asia: { icon: '🌏', label: 'Open to Asia', tone: 'good' },
-  unknown: { icon: '❓', label: 'Location not stated', tone: 'mid' },
-  restricted: { icon: '🚫', label: 'Not open to you', tone: 'bad' },
+  worldwide: { icon: 'globe', label: 'Worldwide', tone: 'good' },
+  asia: { icon: 'pin', label: 'Open to Asia', tone: 'good' },
+  unknown: { icon: 'help', label: 'Location not stated', tone: 'mid' },
+  restricted: { icon: 'ban', label: 'Not open to you', tone: 'bad' },
 };
 const VARIANT_NAME = { fullstack: 'Full-stack', frontend: 'Frontend', backend: 'Backend', devops: 'DevOps', cloud: 'Cloud', ai: 'Full-stack + AI' };
-const BOARD = ['saved', 'applied', 'interview', 'offer', 'rejected', 'skipped'];
+const BOARD = [
+  { status: 'saved', label: 'Saved', color: 'var(--mid)' },
+  { status: 'applied', label: 'Applied', color: 'var(--accent)' },
+  { status: 'interview', label: 'Interview', color: '#8b5cf6' },
+  { status: 'offer', label: 'Offer', color: 'var(--good)' },
+  { status: 'rejected', label: 'Rejected', color: 'var(--bad)' },
+  { status: 'skipped', label: 'Not for me', color: 'var(--text-3)' },
+];
 const OPEN = ['worldwide', 'asia', 'unknown'];
 
 // Quick views: each sets the status filter and default score/location filters.
 const PRESETS = {
-  best: { status: 'new,saved', min: 50, elig: OPEN, empty: 'No strong matches right now. Try "All open", or find new jobs.' },
-  open: { status: 'new,saved', min: 0, elig: OPEN, empty: 'Nothing open. Try "Find new jobs".' },
-  saved: { status: 'saved', min: 0, elig: Object.keys(ELIG), empty: 'Nothing saved yet. Use ⭐ Save on a job to keep it here.' },
-  all: { status: '', min: 0, elig: Object.keys(ELIG), empty: 'No jobs stored yet. Try "Find new jobs".' },
+  best: { status: 'new,saved', min: 50, elig: OPEN, empty: ['No strong matches right now', 'Try "Open", or find new jobs.'] },
+  open: { status: 'new,saved', min: 0, elig: OPEN, empty: ['Nothing open', 'Try "Find new jobs" to check the boards.'] },
+  saved: { status: 'saved', min: 0, elig: Object.keys(ELIG), empty: ['Nothing saved yet', 'Use Save on a job to keep it here.'] },
+  all: { status: '', min: 0, elig: Object.keys(ELIG), empty: ['No jobs yet', 'Try "Find new jobs" to check the boards.'] },
 };
 
 const state = {
@@ -48,22 +56,46 @@ async function api(path, opts = {}) {
 }
 
 let toastTimer;
-function toast(msg, ms = 3500) {
+function toast(msg, { error = false, ms = 3500 } = {}) {
   const t = $('#toast');
-  t.textContent = msg;
+  t.className = `toast${error ? ' err' : ''}`;
+  t.innerHTML = `${icon(error ? 'x' : 'check')}<span>${esc(msg)}</span>`;
   t.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => (t.hidden = true), ms);
 }
 
-const scoreClass = (s) => (s >= 70 ? 'good' : s >= 50 ? 'mid' : '');
+// ---------- Small visual helpers ----------
+
+const tone = (s) => (s >= 70 ? 'good' : s >= 50 ? 'mid' : 'bad');
 const scoreLabel = (s) => (s >= 70 ? 'Strong match' : s >= 50 ? 'Good match' : 'Weak match');
+
+/** Circular score gauge. */
+function ring(score, size = 36, stroke = 3.5, cls = '') {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  return `<span class="ring ${tone(score)} ${cls}" title="${scoreLabel(score)}: ${score}/100">
+    <svg width="${size}" height="${size}"><circle class="track" cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke-width="${stroke}"/>
+    <circle class="val" cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke-width="${stroke}" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - score / 100)}"/></svg>
+    <b>${score}</b></span>`;
+}
+
+/** Company initial(s) on a colour picked from the name, so each company keeps its colour. */
+function mono(name, cls = '') {
+  const clean = String(name ?? '?').replace(/\(.*?\)|https?:\S+/g, '').trim() || '?';
+  const words = clean.split(/[\s\-–.,&]+/).filter((w) => /[a-z0-9]/i.test(w));
+  const initials = (words.length > 1 ? words[0][0] + words[1][0] : clean[0]).toUpperCase();
+  let h = 0;
+  for (const ch of clean) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  return `<span class="mono ${cls}" style="--h:${h}" aria-hidden="true">${esc(initials)}</span>`;
+}
+
 const ago = (iso) => {
   if (!iso) return '';
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / 864e5);
-  return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d < 30 ? `${d} days ago` : `${Math.floor(d / 30)} mo ago`;
+  return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d < 30 ? `${d}d ago` : `${Math.floor(d / 30)}mo ago`;
 };
-const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '');
+const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 const isNew = (j) => state.lastVisit && j.first_seen > state.lastVisit && j.status === 'new';
 
 // ---------- Meta / filters ----------
@@ -73,7 +105,11 @@ async function loadMeta() {
   const m = state.meta;
   const s = m.stats;
   const active = (s.byStatus.applied ?? 0) + (s.byStatus.interview ?? 0) + (s.byStatus.offer ?? 0);
-  $('#stats').textContent = `${s.good} good matches this week · ${s.total} jobs tracked · updated ${m.lastFetch ? ago(m.lastFetch) : 'never'}`;
+  $('#stats').innerHTML = [
+    `<span class="stat"><b>${s.good}</b> good matches this week</span>`,
+    `<span class="stat"><b>${s.total}</b> tracked</span>`,
+    `<span class="stat">Updated <b>${m.lastFetch ? ago(m.lastFetch) : 'never'}</b></span>`,
+  ].join('');
   $('#pipeCount').textContent = active || '';
 
   const src = $('#source');
@@ -85,7 +121,7 @@ async function loadMeta() {
 
 function renderEligChips() {
   $('#eligChips').innerHTML = Object.entries(ELIG)
-    .map(([k, e]) => `<button class="chip" data-elig="${k}" aria-pressed="${state.eligibility.has(k)}">${e.icon} ${e.label}</button>`)
+    .map(([k, e]) => `<button class="chip" data-elig="${k}" aria-pressed="${state.eligibility.has(k)}">${icon(e.icon)}${e.label}</button>`)
     .join('');
 }
 
@@ -128,37 +164,50 @@ function filterQuery() {
 
 // ---------- Job list ----------
 
+function listSkeleton() {
+  $('#jobList').innerHTML = Array.from({ length: 7 }, () =>
+    `<li class="job-item skeleton"><span class="mono" style="--h:220"></span><div class="body"><div class="bar" style="width:70%"></div><div class="bar" style="width:45%"></div></div></li>`,
+  ).join('');
+}
+
+let listReq = 0;
 async function loadJobs() {
   const n = changedFilters();
   $('#filterBadge').textContent = n;
   $('#filterBadge').hidden = !n;
-  state.jobs = await api(`/api/jobs?${filterQuery()}`);
+  const req = ++listReq;
+  if (!state.jobs.length) listSkeleton();
+  const jobs = await api(`/api/jobs?${filterQuery()}`);
+  if (req !== listReq) return; // a newer search finished first
+  state.jobs = jobs;
   renderList();
 }
 
 function renderList() {
   const ul = $('#jobList');
   const fresh = state.jobs.filter(isNew).length;
-  $('#listCount').textContent = `${state.jobs.length}${state.jobs.length === 300 ? '+' : ''} job${state.jobs.length === 1 ? '' : 's'}${fresh ? ` · ${fresh} new since your last visit` : ''}`;
+  $('#listCount').innerHTML = `<span>${state.jobs.length}${state.jobs.length === 300 ? '+' : ''} job${state.jobs.length === 1 ? '' : 's'}</span>${fresh ? `<span class="fresh">${fresh} new since your last visit</span>` : ''}`;
   if (!state.jobs.length) {
-    ul.innerHTML = `<li class="empty">${esc(PRESETS[state.preset].empty)}</li>`;
+    const [title, hint] = PRESETS[state.preset].empty;
+    ul.innerHTML = `<li class="list-empty"><div class="empty-art">${icon('inbox')}</div><b>${esc(title)}</b><br>${esc(hint)}</li>`;
     return;
   }
   ul.innerHTML = state.jobs
     .map((j) => {
       const e = ELIG[j.eligibility];
       return `<li class="job-item${state.selected?.id === j.id ? ' selected' : ''}" data-id="${j.id}">
-        <span class="score ${scoreClass(j.score)}" title="${scoreLabel(j.score)}">${j.score}</span>
-        <div style="min-width:0">
+        ${mono(j.company)}
+        <div class="body">
           <div class="title">${esc(j.title)}</div>
           <div class="sub">${esc(j.company)}${j.salary ? ` · ${esc(j.salary)}` : ''}</div>
           <div class="meta">
-            <span title="${e.label}">${e.icon} ${e.label}</span>
-            <span>${ago(j.posted_at || j.first_seen)}</span>
+            <span>${icon(e.icon)}${e.label}</span>
+            <span>${icon('clock')}${ago(j.posted_at || j.first_seen)}</span>
             ${isNew(j) ? '<span class="new-dot">NEW</span>' : ''}
             ${j.status !== 'new' ? `<span class="pill ${j.status}">${j.status}</span>` : ''}
           </div>
         </div>
+        ${ring(j.score)}
       </li>`;
     })
     .join('');
@@ -186,22 +235,23 @@ function seniorityTone(note) {
 
 // The main buttons depend on where you are with this job.
 function actionButtons(j) {
-  const s = j.status;
   const when = j.status_at ? ` ${ago(j.status_at)}` : '';
-  const btn = (status, label, cls = '') => `<button class="btn ${cls}" data-status="${status}">${label}</button>`;
-  switch (s) {
+  const btn = (status, ico, label, cls = '') => `<button class="btn ${cls}" data-status="${status}">${icon(ico)}${label}</button>`;
+  switch (j.status) {
     case 'new':
-      return btn('saved', '⭐ Save') + btn('applied', '✓ I applied') + btn('skipped', '🙈 Not for me', 'subtle');
+      return btn('saved', 'star', 'Save') + btn('applied', 'check', 'I applied') + btn('skipped', 'eye-off', 'Not for me', 'ghost');
     case 'saved':
-      return btn('new', '⭐ Saved', 'on') + btn('applied', '✓ I applied', 'good') + btn('skipped', '🙈 Not for me', 'subtle');
+      return btn('new', 'star', 'Saved', 'on') + btn('applied', 'check', 'I applied', 'good') + btn('skipped', 'eye-off', 'Not for me', 'ghost');
     case 'applied':
-      return `<span class="status-now">Applied${when}.</span>` + btn('interview', '💬 Got an interview') + btn('rejected', '✗ Rejected', 'subtle');
+      return `<span class="status-now"><span class="pill applied">Applied${when}</span></span>` + btn('interview', 'message', 'Got an interview') + btn('rejected', 'x', 'Rejected', 'ghost');
     case 'interview':
-      return `<span class="status-now">Interviewing${when}.</span>` + btn('offer', '🎉 Got an offer', 'good') + btn('rejected', '✗ Rejected', 'subtle');
+      return `<span class="status-now"><span class="pill interview">Interviewing${when}</span></span>` + btn('offer', 'award', 'Got an offer', 'good') + btn('rejected', 'x', 'Rejected', 'ghost');
     default:
-      return `<span class="status-now">${s[0].toUpperCase() + s.slice(1)}${when}.</span>` + btn('new', '↺ Move back to open', 'subtle');
+      return `<span class="status-now"><span class="pill ${j.status}">${j.status}${when}</span></span>` + btn('new', 'undo', 'Move back to open', 'ghost');
   }
 }
+
+const cardHead = (ico, title, sub = '') => `<div class="card-head"><span class="ico">${icon(ico)}</span><div><h3>${title}</h3>${sub ? `<p>${sub}</p>` : ''}</div></div>`;
 
 function renderDetail() {
   const j = state.selected;
@@ -210,20 +260,26 @@ function renderDetail() {
   const m = state.meta;
   const desc = j.description || '';
   $('#detail').innerHTML = `<div class="detail-inner">
-    <div class="d-head">
-      <h1>${esc(j.title)}</h1>
-      <div class="company">${esc(j.company)}${j.location ? ` · ${esc(j.location)}` : ''}</div>
+    <div class="hero">
+      ${mono(j.company, 'lg')}
+      <div class="who">
+        <h1>${esc(j.title)}</h1>
+        <div class="company">
+          <span>${icon('briefcase')}${esc(j.company)}</span>
+          ${j.location ? `<span>${icon('pin')}${esc(j.location)}</span>` : ''}
+        </div>
+      </div>
+      <div class="score-box">${ring(j.score, 64, 5, 'lg')}<small>${scoreLabel(j.score)}</small></div>
     </div>
     <div class="facts">
-      <span class="fact ${scoreClass(j.score) || 'bad'}">${scoreLabel(j.score)} · ${j.score}/100</span>
-      <span class="fact ${e.tone}">${e.icon} ${e.label}</span>
-      ${j.salary ? `<span class="fact">💰 ${esc(j.salary)}</span>` : ''}
-      <span class="fact">Posted ${ago(j.posted_at || j.first_seen)}</span>
-      <span class="fact">via ${esc(j.seen_on.join(', '))}</span>
+      <span class="fact ${e.tone}">${icon(e.icon)}${e.label}</span>
+      ${j.salary ? `<span class="fact">${icon('money')}${esc(j.salary)}</span>` : ''}
+      <span class="fact">${icon('clock')}Posted ${ago(j.posted_at || j.first_seen)}</span>
+      <span class="fact">${icon('inbox')}via ${esc(j.seen_on.join(', '))}</span>
     </div>
 
-    <div class="action-bar">
-      ${link ? `<a class="btn primary" href="${esc(link)}" target="_blank" rel="noopener">Open job ↗</a>` : ''}
+    <div class="action-bar" id="actionBar">
+      ${link ? `<a class="btn primary" href="${esc(link)}" target="_blank" rel="noopener">Open job${icon('external')}</a>` : ''}
       ${actionButtons(j)}
       <span class="spacer"></span>
       <select id="statusSelect" title="Set any status" aria-label="Set status">
@@ -233,12 +289,12 @@ function renderDetail() {
     </div>
 
     <div class="card">
-      <h3>Why this score</h3>
+      ${cardHead('gauge', 'Why this score', `${j.matched.length} skills matched, ${j.missing.length} missing`)}
       <dl class="match-grid">
         <dt>You have</dt>
-        <dd class="skills">${j.matched.map((s) => `<span class="skill have">✓ ${esc(s)}</span>`).join('') || '<span class="muted">No known skills found in the post.</span>'}</dd>
+        <dd class="skills">${j.matched.map((s) => `<span class="skill have">${icon('check')}${esc(s)}</span>`).join('') || '<span class="muted">No known skills found in the post.</span>'}</dd>
         <dt>Missing</dt>
-        <dd class="skills">${j.missing.map((s) => `<span class="skill miss">✗ ${esc(s)}</span>`).join('') || '<span class="muted">Nothing — you cover every skill it mentions.</span>'}</dd>
+        <dd class="skills">${j.missing.map((s) => `<span class="skill miss">${icon('x')}${esc(s)}</span>`).join('') || '<span class="muted">Nothing. You cover every skill it mentions.</span>'}</dd>
         <dt>Experience</dt>
         <dd><span class="fact ${seniorityTone(j.seniority)}">${esc(j.seniority)}</span></dd>
         <dt>Location</dt>
@@ -249,16 +305,16 @@ function renderDetail() {
     <div class="card" id="cvCard">${cvCard()}</div>
 
     <div class="card">
-      <h3>Notes</h3>
-      <textarea class="notes" id="notes" placeholder="Who you talked to, salary discussed, next steps… (saved automatically)">${esc(j.notes ?? '')}</textarea>
-      ${j.events.length ? `<ul class="timeline">${j.events.map((ev) => `<li><b>${ev.status}</b> ${fmtDate(ev.at)}</li>`).join('')}</ul>` : ''}
+      ${cardHead('note', 'Notes', 'Saved automatically when you click away')}
+      <textarea class="notes" id="notes" placeholder="Who you talked to, salary discussed, next steps…">${esc(j.notes ?? '')}</textarea>
+      ${j.events.length ? `<ul class="timeline">${j.events.map((ev) => `<li><b>${ev.status}</b>${fmtDate(ev.at)}</li>`).join('')}</ul>` : ''}
     </div>
 
     <div class="card">
-      <h3>Job description</h3>
+      ${cardHead('text', 'Job description')}
       ${desc
         ? `<div class="desc${desc.length > 900 ? ' folded' : ''}" id="desc">${esc(desc)}</div>
-           ${desc.length > 900 ? '<button class="link-btn" id="unfold">Show full description</button>' : ''}`
+           ${desc.length > 900 ? `<button class="btn unfold" id="unfold">${icon('chevron')}Show full description</button>` : ''}`
         : '<p class="muted">The source didn\'t include a description. Use "Open job" to read it there.</p>'}
     </div>
   </div>`;
@@ -267,23 +323,25 @@ function renderDetail() {
 
 function variantSelect() {
   const j = state.selected;
-  return `<select id="variant" title="Which version of your CV to start from">
-    <option value="">${esc(VARIANT_NAME[j.variant] ?? j.variant)} (suggested)</option>
-    ${state.meta.variants.filter((v) => v !== j.variant).map((v) => `<option value="${v}">${esc(VARIANT_NAME[v] ?? v)}</option>`).join('')}
+  return `<select id="variant" title="Which version of your CV to start from" aria-label="CV version">
+    <option value="">${esc(VARIANT_NAME[j.variant] ?? j.variant)} CV (suggested)</option>
+    ${state.meta.variants.filter((v) => v !== j.variant).map((v) => `<option value="${v}">${esc(VARIANT_NAME[v] ?? v)} CV</option>`).join('')}
   </select>`;
 }
 
 function cvCard() {
+  const head = cardHead('file', 'Tailored CV', 'Your own bullets, projects and skills, picked and ordered for this job. Nothing is invented.');
   if (!state.cvOpen) {
-    return `<h3>Tailored CV</h3>
-      <p class="lead">Picks and orders your own bullets, projects and skills for this job. Nothing is invented.</p>
-      <div class="cv-start">${variantSelect()}<button class="btn primary" id="makeCv">📄 Create tailored CV</button></div>`;
+    return `${head}<div class="cv-empty">
+      <p>Make a one-page CV for this job when you're ready to apply.</p>
+      <div class="row">${variantSelect()}<button class="btn primary" id="makeCv">${icon('file')}Create tailored CV</button></div>
+    </div>`;
   }
-  return `<h3>Tailored CV</h3>
+  return `${head}
     <div class="cv-bar">
       ${variantSelect()}
-      <button class="btn primary" id="pdfBtn">⬇ Download PDF</button>
-      <span class="ats" id="ats">This is a preview. The PDF is made by Chrome and checked for job keywords.</span>
+      <button class="btn primary" id="pdfBtn">${icon('download')}Download PDF</button>
+      <span class="ats" id="ats">Preview. The PDF is made by Chrome and checked for job keywords.</span>
     </div>
     <div class="cv-frame-wrap" id="cvWrap"><iframe id="cvFrame" title="CV preview"></iframe></div>`;
 }
@@ -313,7 +371,7 @@ new ResizeObserver(fitFrame).observe(document.body);
 
 async function downloadPdf(btn) {
   btn.disabled = true;
-  btn.textContent = 'Making PDF…';
+  btn.innerHTML = `${icon('refresh', 'spin')}Making PDF…`;
   try {
     const res = await fetch(`/api/jobs/${state.selected.id}/cv.pdf${cvParams()}`);
     if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.statusText);
@@ -324,20 +382,21 @@ async function downloadPdf(btn) {
     Object.assign(document.createElement('a'), { href: url, download: name }).click();
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
     const el = $('#ats');
-    el.textContent = `✓ Downloaded. ATS check: ${ats}${dropped ? ` (${dropped} lower-ranked bullet${dropped > 1 ? 's' : ''} trimmed to fit one page.)` : ''}`;
+    el.innerHTML = `${icon('check')}Downloaded. ATS check: ${esc(ats)}${dropped ? ` (${dropped} lower-ranked bullet${dropped > 1 ? 's' : ''} trimmed to fit one page.)` : ''}`;
     el.classList.add('ok');
+    toast('CV downloaded');
   } catch (err) {
-    toast(`Couldn't make the CV: ${err.message}`);
+    toast(`Couldn't make the CV: ${err.message}`, { error: true });
   } finally {
     btn.disabled = false;
-    btn.textContent = '⬇ Download PDF';
+    btn.innerHTML = `${icon('download')}Download PDF`;
   }
 }
 
 async function setJobStatus(id, status) {
   const j = await api(`/api/jobs/${id}`, { method: 'PATCH', body: { status } });
   if (state.selected?.id === id) state.selected = j;
-  const msg = { saved: 'Saved ⭐', applied: 'Marked as applied. Good luck!', skipped: 'Hidden from your matches', new: 'Moved back to open' }[status];
+  const msg = { saved: 'Saved', applied: 'Marked as applied. Good luck!', skipped: 'Hidden from your matches', new: 'Moved back to open' }[status];
   toast(msg ?? `Marked as ${status}`);
   loadMeta();
   return j;
@@ -346,15 +405,18 @@ async function setJobStatus(id, status) {
 // ---------- Pipeline ----------
 
 async function loadBoard() {
-  const jobs = await api(`/api/jobs?status=${BOARD.join(',')}&limit=1000`);
-  $('#board').innerHTML = BOARD.map((s) => {
-    const col = jobs.filter((j) => j.status === s).sort((a, b) => (b.status_at ?? '').localeCompare(a.status_at ?? ''));
-    return `<div class="column" data-status="${s}">
-      <h3>${{ saved: '⭐ Saved', applied: '✓ Applied', interview: '💬 Interview', offer: '🎉 Offer', rejected: '✗ Rejected', skipped: '🙈 Not for me' }[s]} <span>${col.length}</span></h3>
+  const jobs = await api(`/api/jobs?status=${BOARD.map((b) => b.status).join(',')}&limit=1000`);
+  $('#board').innerHTML = BOARD.map(({ status, label, color }) => {
+    const col = jobs.filter((j) => j.status === status).sort((a, b) => (b.status_at ?? '').localeCompare(a.status_at ?? ''));
+    return `<div class="column" data-status="${status}">
+      <h3><span class="dot" style="--c:${color}"></span>${label}<span class="n">${col.length}</span></h3>
       ${col.length
         ? col.map((j) => `<div class="bcard" draggable="true" data-id="${j.id}">
-            <div class="title">${esc(j.title)}</div>
-            <div class="sub">${esc(j.company)} · ${ago(j.status_at)}</div>
+            ${mono(j.company, 'sm')}
+            <div class="body">
+              <div class="title">${esc(j.title)}</div>
+              <div class="sub">${esc(j.company)} · ${ago(j.status_at)}</div>
+            </div>
           </div>`).join('')
         : '<div class="col-empty">Drag jobs here</div>'}
     </div>`;
@@ -401,7 +463,7 @@ $('#eligChips').addEventListener('click', (e) => {
 });
 
 $('#jobList').addEventListener('click', (e) => {
-  const item = e.target.closest('.job-item');
+  const item = e.target.closest('.job-item:not(.skeleton)');
   if (item) selectJob(Number(item.dataset.id));
 });
 
@@ -416,6 +478,12 @@ document.addEventListener('keydown', (e) => {
   selectJob(next.id, { scroll: true });
 });
 
+// Hairline under the action bar once it sticks to the top.
+$('#detail').addEventListener('scroll', (e) => {
+  const bar = $('#actionBar');
+  if (bar) bar.classList.toggle('stuck', bar.getBoundingClientRect().top <= e.currentTarget.getBoundingClientRect().top + 1);
+});
+
 $('#detail').addEventListener('click', async (e) => {
   const st = e.target.closest('[data-status]');
   if (st) {
@@ -424,17 +492,18 @@ $('#detail').addEventListener('click', async (e) => {
     loadJobs();
     return;
   }
-  if (e.target.id === 'makeCv') {
+  const id = e.target.closest('button')?.id;
+  if (id === 'makeCv') {
     state.cvOpen = true;
     const v = $('#variant').value;
     $('#cvCard').innerHTML = cvCard();
     $('#variant').value = v;
     loadPreview();
   }
-  if (e.target.id === 'pdfBtn') downloadPdf(e.target);
-  if (e.target.id === 'unfold') {
+  if (id === 'pdfBtn') downloadPdf(e.target.closest('button'));
+  if (id === 'unfold') {
     $('#desc').classList.remove('folded');
-    e.target.remove();
+    e.target.closest('button').remove();
   }
 });
 $('#detail').addEventListener('change', async (e) => {
@@ -458,8 +527,11 @@ document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () 
 const board = $('#board');
 board.addEventListener('dragstart', (e) => {
   const card = e.target.closest('.bcard');
-  if (card) e.dataTransfer.setData('text/plain', card.dataset.id);
+  if (!card) return;
+  e.dataTransfer.setData('text/plain', card.dataset.id);
+  card.classList.add('dragging');
 });
+board.addEventListener('dragend', (e) => e.target.closest('.bcard')?.classList.remove('dragging'));
 board.addEventListener('dragover', (e) => {
   const col = e.target.closest('.column');
   if (!col) return;
@@ -499,7 +571,7 @@ $('#addForm').addEventListener('submit', async (e) => {
   const data = Object.fromEntries(new FormData(e.target));
   const btn = $('#addSubmit');
   btn.disabled = true;
-  btn.textContent = 'Reading the job…';
+  btn.innerHTML = `${icon('refresh', 'spin')}Reading the job…`;
   try {
     const j = await api('/api/jobs', { method: 'POST', body: data });
     dialog.close();
@@ -521,25 +593,26 @@ $('#addForm').addEventListener('submit', async (e) => {
 $('#fetchBtn').addEventListener('click', async (e) => {
   const btn = e.currentTarget;
   btn.disabled = true;
-  btn.textContent = '⟳ Searching…';
-  toast('Checking all job sources. LinkedIn is slow on purpose, so this takes 1–3 minutes.', 8000);
+  btn.innerHTML = `${icon('refresh', 'spin')}<span>Searching…</span>`;
+  toast('Checking all job sources. LinkedIn is slow on purpose, so this takes 1–3 minutes.', { ms: 8000 });
   try {
     const r = await api('/api/fetch', { method: 'POST' });
-    toast(`${r.added ? `${r.added} new job${r.added > 1 ? 's' : ''} found` : 'No new jobs this time'}${r.failed.length ? ` (couldn't reach: ${r.failed.map((f) => f.source).join(', ')})` : ''}`, 6000);
+    toast(`${r.added ? `${r.added} new job${r.added > 1 ? 's' : ''} found` : 'No new jobs this time'}${r.failed.length ? ` (couldn't reach: ${r.failed.map((f) => f.source).join(', ')})` : ''}`, { ms: 6000 });
     await Promise.all([loadMeta(), loadJobs()]);
   } catch (err) {
-    toast(`Search failed: ${err.message}`);
+    toast(`Search failed: ${err.message}`, { error: true });
   } finally {
     btn.disabled = false;
-    btn.textContent = '⟳ Find new jobs';
+    btn.innerHTML = `${icon('refresh')}<span>Find new jobs</span>`;
   }
 });
 
 // ---------- Start ----------
 
 (async function init() {
+  listSkeleton();
   await loadMeta();
   await loadJobs();
   const id = Number(location.hash.match(/job=(\d+)/)?.[1]) || state.jobs[0]?.id;
   if (id) selectJob(id, { scroll: true });
-})().catch((err) => toast(`Couldn't load: ${err.message}`, 10_000));
+})().catch((err) => toast(`Couldn't load: ${err.message}`, { error: true, ms: 10_000 }));

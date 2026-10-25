@@ -4,20 +4,58 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Job Hunt Autopilot</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234f46e5' stroke-width='2.4'><circle cx='12' cy='12' r='10'/><circle cx='12' cy='12' r='6'/><circle cx='12' cy='12' r='2'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/app.css">
 </head>
 <body>
+  <!-- Icon sprite (Lucide, ISC licence). Use: <svg class="i"><use href="#i-name"/></svg> -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/></symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+      <symbol id="i-external" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+      <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+      <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68M6.61 6.61A13.53 13.53 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61M2 2l20 20"/></symbol>
+      <symbol id="i-message" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></symbol>
+      <symbol id="i-award" viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+      <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+      <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></symbol>
+      <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+      <symbol id="i-money" viewBox="0 0 24 24"><rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></symbol>
+      <symbol id="i-briefcase" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="7" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></symbol>
+      <symbol id="i-undo" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+      <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></symbol>
+      <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></symbol>
+      <symbol id="i-list" viewBox="0 0 24 24"><path d="M3 12h.01M3 18h.01M3 6h.01M8 12h13M8 18h13M8 6h13"/></symbol>
+      <symbol id="i-kanban" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 7v7M12 7v4M16 7v9"/></symbol>
+      <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+      <symbol id="i-note" viewBox="0 0 24 24"><path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3Z"/><path d="M15 3v6h6"/></symbol>
+      <symbol id="i-gauge" viewBox="0 0 24 24"><path d="m12 14 4-4M3.34 19a10 10 0 1 1 17.32 0"/></symbol>
+      <symbol id="i-text" viewBox="0 0 24 24"><path d="M21 6H3M15 12H3M17 18H3"/></symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    </defs>
+  </svg>
+
   <header class="topbar">
-    <div class="brand">🎯 Job Hunt Autopilot</div>
+    <div class="brand"><span class="logo"><svg class="i"><use href="#i-target"/></svg></span>Job Hunt Autopilot</div>
     <nav class="tabs" role="tablist">
-      <button class="tab active" data-view="jobs" role="tab">Jobs</button>
-      <button class="tab" data-view="pipeline" role="tab">My applications <span class="count" id="pipeCount"></span></button>
+      <button class="tab active" data-view="jobs" role="tab"><svg class="i"><use href="#i-list"/></svg>Jobs</button>
+      <button class="tab" data-view="pipeline" role="tab"><svg class="i"><use href="#i-kanban"/></svg>My applications <span class="count" id="pipeCount"></span></button>
     </nav>
     <div class="stats" id="stats"></div>
     <div class="actions">
-      <button class="btn" id="fetchBtn" title="Check all job sources now (1–3 minutes)">⟳ Find new jobs</button>
-      <button class="btn primary" id="addBtn">+ Add a job</button>
+      <button class="btn" id="fetchBtn" title="Check all job sources now (1–3 minutes)"><svg class="i"><use href="#i-refresh"/></svg><span>Find new jobs</span></button>
+      <button class="btn primary" id="addBtn"><svg class="i"><use href="#i-plus"/></svg><span>Add a job</span></button>
     </div>
   </header>
 
@@ -25,25 +63,30 @@
     <section class="list-pane">
       <div class="filters">
         <div class="segmented" id="presets" role="tablist" aria-label="Quick views">
-          <button data-preset="best" aria-pressed="true" title="Score 50+, a location you can work from, not applied or skipped yet">Best matches</button>
-          <button data-preset="open" title="Everything you haven't applied to or skipped">All open</button>
-          <button data-preset="saved" title="Jobs you saved">⭐ Saved</button>
-          <button data-preset="all" title="Every stored job, including restricted ones">Everything</button>
+          <button data-preset="best" aria-pressed="true" title="Score 50+, a location you can work from, not applied or skipped yet">Best</button>
+          <button data-preset="open" title="Everything you haven't applied to or skipped">Open</button>
+          <button data-preset="saved" title="Jobs you saved">Saved</button>
+          <button data-preset="all" title="Every stored job, including restricted ones">All</button>
         </div>
         <div class="search-row">
-          <input id="q" type="search" placeholder="Search jobs, companies, skills…" autocomplete="off">
-          <button class="btn subtle" id="moreFilters" aria-expanded="false">Filters <span id="filterBadge" class="badge" hidden></span></button>
+          <label class="search">
+            <svg class="i"><use href="#i-search"/></svg>
+            <input id="q" type="search" placeholder="Search jobs, companies, skills…" autocomplete="off">
+          </label>
+          <button class="btn icon-btn" id="moreFilters" aria-expanded="false" title="Filters">
+            <svg class="i"><use href="#i-sliders"/></svg><span id="filterBadge" class="badge" hidden></span>
+          </button>
         </div>
         <div class="more-filters" id="filterPanel" hidden>
-          <label class="field">Minimum score <output id="minOut">50</output>
+          <label class="field"><span>Minimum score <output id="minOut">50</output></span>
             <input id="min" type="range" min="0" max="100" step="5" value="50">
           </label>
-          <div class="field">Location
+          <div class="field"><span>Location</span>
             <div class="chips" id="eligChips"></div>
           </div>
           <div class="field-row">
-            <label class="field">Source <select id="source"><option value="">All sources</option></select></label>
-            <label class="field">Posted <select id="days">
+            <label class="field"><span>Source</span><select id="source"><option value="">All sources</option></select></label>
+            <label class="field"><span>Posted</span><select id="days">
               <option value="">Any time</option>
               <option value="1">Last 24 hours</option>
               <option value="3">Last 3 days</option>
@@ -60,25 +103,36 @@
 
     <section class="detail-pane" id="detail">
       <div class="empty">
-        <div class="empty-icon">👈</div>
-        Pick a job to see why it matches, save it, or make a tailored CV.
+        <div class="empty-art"><svg class="i"><use href="#i-briefcase"/></svg></div>
+        <h2>Pick a job</h2>
+        <p>See why it matches you, save it, or make a tailored CV.</p>
       </div>
     </section>
   </main>
 
   <main id="pipelineView" class="pipeline-view" hidden>
-    <p class="board-hint">Drag a card to another column to update it. Click a card to open the job.</p>
+    <div class="board-head">
+      <h1>My applications</h1>
+      <p>Drag a card to another column to update it. Click a card to open the job.</p>
+    </div>
     <div class="board" id="board"></div>
   </main>
 
   <dialog id="addDialog">
     <form method="dialog" id="addForm">
-      <h2>Add a job you found</h2>
-      <p class="hint">Paste the job description or a LinkedIn "we're hiring" post, or give a link to the job page. It's scored like every other job; you can make a CV for it afterwards.</p>
+      <div class="dialog-head">
+        <span class="dialog-icon"><svg class="i"><use href="#i-plus"/></svg></span>
+        <div>
+          <h2>Add a job you found</h2>
+          <p class="hint">Paste the description, a LinkedIn "we're hiring" post, or a link. It's scored like every other job.</p>
+        </div>
+        <button class="btn icon-btn ghost" value="cancel" formnovalidate aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+      </div>
       <textarea name="text" rows="9" placeholder="Paste the job text here…"></textarea>
-      <input name="url" type="url" placeholder="…or a link: https://…">
+      <div class="or"><span>or</span></div>
+      <input name="url" type="url" placeholder="https://… link to the job page">
       <details>
-        <summary>Title and company (optional)</summary>
+        <summary>Add title and company yourself (optional)</summary>
         <div class="two">
           <input name="title" placeholder="Job title">
           <input name="company" placeholder="Company">
@@ -86,7 +140,7 @@
       </details>
       <p class="error" id="addError" hidden></p>
       <div class="dialog-actions">
-        <button class="btn" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn ghost" value="cancel" formnovalidate>Cancel</button>
         <button class="btn primary" id="addSubmit" value="add">Add job</button>
       </div>
     </form>
