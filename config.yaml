@@ -1,0 +1,52 @@
+# Search & filter settings. Secrets (Telegram token, LLM key) live in .env, not here.
+
+# Words in a job title that make it relevant. Matched case-insensitively.
+roles:
+  devops: [devops, dev ops, devsecops, sre, site reliability, platform engineer, infrastructure engineer, cloud engineer, cloud operations, release engineer, build engineer, systems engineer]
+  cloud: [cloud engineer, cloud operations, cloud support, cloud administrator, aws engineer]
+  frontend: [frontend, front-end, front end, react developer, react engineer, ui engineer, web developer, next.js developer]
+  backend: [backend, back-end, back end, node developer, node.js developer, node engineer, node.js engineer, api engineer]
+  fullstack: [full stack, full-stack, fullstack, software engineer, software developer, product engineer, javascript developer, javascript engineer, typescript developer, typescript engineer, mern]
+
+# Titles containing any of these are dropped entirely.
+exclude_titles: [sales, account executive, marketing, recruiter, recruiting, customer success, designer, data scientist, data analyst, machine learning, ml engineer, android, ios, mobile, flutter, qa tester, manual qa, director, vp, vice president, head of, intern, internship, php, laravel, wordpress, ".net", "c#", java developer, java engineer, python developer, golang, ruby, rails, salesforce, sap, embedded, firmware, teacher, tutor, writer, annotation, ai trainer, unity, game]
+
+# Seniority is judged from the years the job asks for ("5+ years"), not the title.
+experience_years: 3.5
+seniority:
+  # Used only when the description doesn't state required years.
+  title_penalty: [staff, principal, head of, distinguished]
+  title_bonus: [junior, associate, mid-level, mid level, "engineer ii", entry]
+
+# Locations you can legally work from as a remote contractor/employee.
+eligible_locations: [anywhere, worldwide, world-wide, global, globally, any country, any location, all countries, international, asia, apac, asia-pacific, south asia, bangladesh, "gmt+6", "utc+6", remote (global)]
+
+linkedin:
+  enabled: true
+  # Public (logged-out) job search, so your personal account is never touched.
+  queries: [full stack engineer, devops engineer, node.js developer, react developer, cloud engineer, platform engineer, backend engineer typescript]
+  hours_back: 24
+  pages_per_query: 2      # 10 results per page
+  max_detail_fetches: 40  # job descriptions fetched per run (polite rate)
+
+hn_whos_hiring: true
+
+# Companies whose public job boards are checked directly.
+watchlist:
+  greenhouse: [gitlab, canonical, automatticcareers, grafanalabs, elastic, cloudflare, vercel, wikimedia, mongodb]
+  ashby: [linear, supabase, posthog, zapier, n8n, railway, oyster, replit, sentry]
+  lever: [binance]
+
+digest:
+  min_score: 50
+  max_jobs: 15
+  include_unknown_location: true   # "unknown" = posting doesn't say; restricted ones are never sent
+  follow_up_after_days: 7
+
+schedule:
+  fetch_every_hours: 6
+  digest_at: "09:00"   # local time
+
+cv:
+  paper: A4            # A4, Letter or Legal. Always rendered on ONE page.
+  max_projects: { devops: 4, cloud: 4, default: 3 }

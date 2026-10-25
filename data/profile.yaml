@@ -1,0 +1,299 @@
+# Master profile: the single source of truth for every CV the tool generates.
+# Edit facts here once; never edit a generated CV by hand.
+#
+# Tags decide which CV variant a bullet belongs to:
+#   fullstack, frontend, backend, devops, cloud, ai
+# Bullets that share a `group` are alternative phrasings of the same achievement;
+# the generator picks only the best-matching one per CV.
+
+basics:
+  name: S.M. Hazrat Ali
+  email: hazrat17016@gmail.com
+  phone: (+880) 1521334914
+  location: Gazipur, Bangladesh
+  links:
+    - label: linkedin.com/in/smhazratali
+      url: https://linkedin.com/in/smhazratali
+    - label: github.com/Hazrat16
+      url: https://github.com/Hazrat16
+
+variants:
+  fullstack:
+    title: Full-Stack Engineer
+    summary: >-
+      Full-stack engineer with 3+ years of production experience in React, TypeScript, Node.js/Express,
+      MongoDB, and Redis. Builds REST and real-time APIs, fintech and billing workflows, and fast React
+      frontends (30–45% faster load times at SmartCrowd), and ships them with Docker, CI/CD, and AWS.
+      Currently on a contract, so available to join immediately.
+    sections: [experience, skills, projects, education]
+  frontend:
+    title: Frontend Engineer
+    summary: >-
+      Frontend engineer with 3+ years building production React/TypeScript applications, from component
+      architecture to performance work that cut load times by 30–45%. Comfortable across the stack when a
+      feature needs API support. Currently on a contract, so available to join immediately.
+    sections: [experience, skills, projects, education]
+  backend:
+    title: Backend Engineer
+    summary: >-
+      Backend-leaning full-stack engineer with 3+ years of production experience building Node.js/Express
+      APIs with MongoDB, PostgreSQL, and Redis for fintech and billing platforms, including authentication,
+      caching, real-time Socket.IO features, and queues, shipped with Docker, CI/CD, and AWS.
+      Currently on a contract, so available to join immediately.
+    sections: [experience, skills, projects, education]
+  devops:
+    title: DevOps Engineer
+    summary: >-
+      Full-stack engineer with 3+ years of production experience, transitioning into DevOps and cloud
+      infrastructure. Hands-on with AWS, Linux, Docker, Kubernetes, Terraform, Ansible, CI/CD and monitoring,
+      with experience operating production systems and building infrastructure end-to-end.
+    sections: [skills, projects, experience, education]
+  cloud:
+    title: Cloud Engineer
+    summary: >-
+      Full-stack software engineer with 3+ years of production experience, transitioning into cloud operations.
+      Hands-on with AWS compute, storage, networking, and IAM; comfortable with Linux, Git, scripting, and
+      Infrastructure as Code (Terraform, Ansible); and experienced writing operational documentation and
+      runbooks. Used to monitoring production systems, investigating alerts, and following structured incident
+      and access-management processes.
+    sections: [skills, projects, experience, education]
+  ai:
+    title: Full-Stack Engineer
+    summary: >-
+      Full-stack engineer with 3+ years of production experience across React/Next.js, TypeScript, Node.js,
+      MongoDB, PostgreSQL, and Redis. I build primarily with agentic coding tools (Claude Code, Cursor): I write
+      scoped specs, run parallel agents across backend and frontend workstreams, and review, test, and debug
+      their output before it ships. Strong in REST/real-time APIs, fintech and billing workflows, and
+      Docker/AWS delivery. Available immediately.
+    sections: [ai_practice, experience, skills, projects, education]
+
+# Shown only for the `ai` variant (or when a job mentions agentic / AI-assisted development).
+ai_practice:
+  - Use Claude Code and Cursor as my main development environment for production work at PriceEstimator.ai and for my personal projects.
+  - Break features into scoped specs and run parallel agents across API, UI, and test work in isolated branches, guided by CLAUDE.md rule files that set repo conventions.
+  - Verify agent output through test loops and line-by-line review before merging, and rewrite or reject changes that don't meet the repo's conventions or security rules.
+  - Keep secrets and client data out of prompts, and personally review all auth, billing, and payment code.
+
+experience:
+  - company: Firmwide — PriceEstimator.ai
+    role: Full-Stack Engineer
+    location: Remote
+    start: May 2026
+    end: Present
+    bullets:
+      - group: fw-primary
+        tags: [fullstack, backend, ai]
+        text: Primary engineer for a project-fee estimation and billing platform (React, TypeScript, Node.js/Express 5, MongoDB, Redis).
+      - group: fw-primary
+        tags: [frontend]
+        text: Own frontend development of a project-fee estimation and billing platform built with React 19, TypeScript, Vite, TanStack Query, Tailwind CSS and Radix UI.
+      - group: fw-apis
+        tags: [fullstack, backend, ai]
+        text: Built REST APIs with Express 5, Mongoose, Redis, JWT, and Zod for enquiries, proposals, invoicing, authentication, and user management.
+      - group: fw-apis
+        tags: [devops, cloud, backend]
+        text: Built and optimized Node.js/Express services with MongoDB and Redis for a production billing platform, including a caching strategy to reduce database load, JWT authentication, and Zod-validated APIs.
+      - group: fw-invoice
+        tags: [fullstack, backend, ai]
+        text: "Built the proposal-to-invoice workflow: enquiry intake, scoping, proposal generation, multi-currency invoicing and PDF export."
+      - group: fw-invoice
+        tags: [frontend]
+        text: "Built the proposal-to-invoice UI: enquiry intake, project scoping, proposal generation, and milestone-based, multi-currency invoicing with client-side PDF export (jsPDF, html2canvas)."
+      - group: fw-arch
+        tags: [frontend, fullstack, ai]
+        text: Architected a domain-driven frontend (~450 TypeScript/React files) with vertical-slice modules and enforced import boundaries.
+      - group: fw-sso
+        tags: [fullstack, backend, ai]
+        text: Added Microsoft Graph/MSAL single sign-on, role-based access, OTP invitations and Socket.IO real-time notifications.
+      - group: fw-sso
+        tags: [frontend]
+        text: Added role-based UI, Microsoft Graph data in the enquiry organizer and real-time Socket.IO notifications; built supporting Node.js/Express endpoints when needed.
+      - group: fw-sso
+        tags: [devops, backend]
+        text: Integrated Microsoft Graph API for secure single sign-on and automated data ingestion from Microsoft 365 mailboxes.
+      - group: fw-sso
+        tags: [cloud]
+        text: Implemented secure single sign-on (MSAL2) and Microsoft Graph API access integration with Microsoft 365, applying identity and access management concepts in a production system.
+      - group: fw-cicd
+        tags: [devops, cloud]
+        text: Set up CI/CD pipelines in GitHub Actions with lint, type-check, and build gates on pull requests, and tag-based staging-to-production promotion.
+      - group: fw-cicd
+        tags: [fullstack, backend, ai]
+        text: Set up GitHub Actions CI/CD with multi-stage Docker builds and Nginx deployments.
+      - group: fw-cicd
+        tags: [frontend]
+        text: Set up GitHub Actions lint, type-check and build gates and Docker builds for staging and production.
+      - group: fw-docker
+        tags: [devops, cloud]
+        text: Containerized the application with multi-stage Docker builds and environment-specific Nginx reverse-proxy configurations.
+      - group: fw-docs
+        tags: [devops, cloud]
+        text: Kept deployment configurations, environment variables, and operational docs current across staging and production for the rest of the engineering team.
+
+  - company: SmartCrowd
+    role: Software Engineer
+    location: Dubai, UAE (Remote)
+    start: Dec 2022
+    end: Apr 2026
+    sub_roles: "Software Engineer, Mar 2025 – Apr 2026 | Junior Software Engineer, Dec 2022 – Feb 2025"
+    bullets:
+      - group: sc-promo
+        tags: [fullstack, backend, frontend, devops, cloud]
+        text: Promoted from Junior Software Engineer to Software Engineer within just over two years for leading architecture improvements and delivering fintech product features used by 10K+ active users.
+      - group: sc-api
+        tags: [fullstack, backend]
+        text: Built Node.js/Express authentication and transaction APIs; optimized MongoDB queries and caching, improving API response times by 25–35%.
+      - group: sc-react
+        tags: [fullstack, frontend, ai]
+        text: Developed React/Redux features integrating 5+ financial APIs across investment, portfolio, and transaction workflows.
+      - group: sc-perf
+        tags: [fullstack, frontend, ai]
+        text: Reduced initial frontend load time by 30–45% through code splitting, lazy loading, and legacy component optimization.
+      - group: sc-stf
+        tags: [fullstack, frontend, ai]
+        text: Led delivery of the Share Transfer Facility and built 20+ reusable components, reducing duplicated UI implementation by approximately 35%.
+      - group: sc-stf
+        tags: [devops, cloud, backend]
+        text: Led end-to-end delivery of the Share Transfer Facility (STF), coordinating cross-functional teams and ensuring zero major post-release production issues in a high-volume transaction system.
+      - group: sc-monitor
+        tags: [devops, cloud, backend]
+        text: Monitored a fintech platform with 10K+ active users through Sentry and LogRocket; triaged alerts daily and drove incident resolution.
+
+projects:
+  - name: SmartJobHub
+    url: https://github.com/Hazrat16/smart-jobhub
+    descriptions:
+      - tags: [devops, cloud]
+        title: "SmartJobHub: CI/CD and AWS platform for a job portal"
+        text: Built Terraform modules for VPC, ALB, ECS Fargate, ElastiCache, Secrets Manager, and CloudFront, with matching staging and production environments. Developed GitHub Actions pipelines for tests, Docker builds, Trivy vulnerability scanning, and CodeQL security analysis. Deployed a single versioned image to staging, then to production after approval, using GitHub OIDC instead of static AWS keys. Set up Prometheus, Grafana, and Loki, CloudWatch alarms to SNS, Sentry, and AWS budget alerts. Improved deployment safety with ECS circuit-breaker rollback, smoke tests, and autoscaling. Wrote the runbook, nine Architecture Decision Records (ADRs), and ran a backup restoration drill.
+      - tags: [fullstack, backend, ai]
+        title: "SmartJobHub: job portal platform"
+        text: Built a job portal for jobseekers, employers, and admins, with job posting and search, applications with status history, saved jobs, company profiles, notifications, and role-based access. Added real-time chat with Socket.IO and a Redis adapter so messages and online status work across several servers. Integrated SSLCommerz payments, Cloudinary uploads, PDF resume parsing, and a BullMQ email queue, and exposed Prometheus metrics from the API. Covered the API with 15 test suites (Node test runner, Supertest) and the web app with a Playwright smoke test; deployed on AWS ECS Fargate with Terraform and GitHub Actions.
+      - tags: [frontend]
+        title: "SmartJobHub: job portal web app"
+        text: Built a 29-page app for jobseekers, employers and admins, with job search and filters, applications, saved jobs, company profiles, payments, an analytics dashboard and a resume-fit tool that suggests resume bullets. Added real-time chat and notifications with the Socket.IO client, forms with React Hook Form, dark mode and ARIA labelling. Wrote Playwright tests for sign-up, sign-in and key pages that run in CI; deployed on AWS with Docker and GitHub Actions.
+
+  - name: Doctor Appointment Platform
+    url: https://github.com/Hazrat16/appointment
+    descriptions:
+      - tags: [devops, fullstack, backend, ai]
+        title: "Doctor Appointment Platform: AWS infrastructure and CI/CD"
+        text: Built and managed CI/CD and AWS infrastructure for a full-stack booking platform (Next.js, Express, MongoDB). Automated TypeScript builds, CodeQL security scanning, and Docker image publishing to GitHub Container Registry (GHCR) using GitHub Actions. Provisioned AWS infrastructure (VPC, security groups, EC2) with Terraform and configured Linux hosts with Ansible, including Docker, MongoDB backups, Nginx, TLS, rolling deployments, and application health checks.
+      - tags: [cloud]
+        title: "Doctor Appointment Platform: cloud infrastructure and documentation"
+        text: Provisioned AWS network and compute (VPC, security groups, EC2) with Terraform, and configured and maintained Linux hosts with Ansible (Nginx with TLS, MongoDB with automated backups, health-check playbook, secrets managed with Ansible Vault). Set up a GitHub Actions CI/CD pipeline with CodeQL security scanning that publishes Docker images to GHCR. Wrote setup, deployment, and operational documentation so the environment is reproducible by others.
+      - tags: [frontend]
+        title: Doctor Appointment Platform
+        text: Built a booking app with separate patient, doctor and admin dashboards behind role-based route guards. Patients search doctors and book slots, doctors manage availability and visits, and admins verify doctors and manage users. Built a reusable UI kit (buttons, inputs, selects, cards, confirm dialogs) and validated forms with Zod.
+
+  - name: Real-Time Inventory Reservation System
+    url: https://github.com/Hazrat16/real-time-high-trafic-inventory
+    descriptions:
+      - tags: [devops, cloud]
+        title: "Real-Time High-Traffic Inventory: Jenkins CI/CD on AWS EC2"
+        text: Built a Jenkins CI/CD pipeline on AWS EC2, triggered by GitHub webhooks, to automate builds, tests, and deployments. Used Docker Compose for PostgreSQL integration tests, including a 100-request concurrency test, ensuring failed builds never deploy. Automated deployment with Docker Compose, Nginx, Node.js, and PostgreSQL, with secure secrets, versioned images, and Prisma migrations. Improved reliability with server hardening, timeouts, rollback support, and a deployment runbook.
+      - tags: [fullstack, backend, ai]
+        title: Real-Time Inventory Reservation System (Jenkins CI/CD)
+        text: Built a concurrency-safe, real-time inventory reservation system (Express/Prisma/Socket.IO, React/Vite, pnpm monorepo) preventing overselling via row-level DB locking and transactional reservations with automatic expiry. Built a Jenkins pipeline (webhook-triggered, multi-stage Docker builds, integration tests, automated deploy and smoke tests) self-hosted on AWS EC2 behind Nginx.
+      - tags: [frontend]
+        title: A Real-time Sneaker Drop Inventory
+        text: Built the storefront for a limited-stock product drop where many shoppers reserve at once. Stock updates live over Socket.IO, a live countdown shows each 60-second hold before checkout, and skeleton loaders and toasts keep the UI responsive under load. Shared TypeScript types between the React app and the Express/Prisma API in a pnpm monorepo.
+
+  - name: Kubernetes Deployment on Amazon EKS
+    url: https://github.com/Hazrat16/student-management-with-eks
+    descriptions:
+      - tags: [devops, cloud]
+        title: Kubernetes Deployment on Amazon EKS
+        text: Deployed a two-tier, MySQL-backed application to a Kubernetes cluster on Amazon EKS using kubectl and eksctl, including namespace, deployment, and service manifests; documented cluster setup and teardown to manage cloud costs.
+
+  - name: Terraform AWS Networking and Compute Module
+    url: https://github.com/Hazrat16/terraform-launchpad
+    descriptions:
+      - tags: [devops, cloud]
+        title: Terraform AWS Networking and Compute Module
+        text: Built a modular Terraform configuration provisioning a VPC, subnets, internet gateway, route tables, security groups, and an EC2 web server, with separated backend, variables, and outputs files, and a Bash user-data script for instance bootstrapping.
+
+  - name: Ansible Multi-Role Linux Platform
+    descriptions:
+      - tags: [cloud, devops]
+        title: Ansible Multi-Role Linux Platform (Homelab Classroom Kit)
+        text: Configured and maintained a 3-node Linux platform (control, web, database) on AWS EC2 using Ansible roles for Nginx (with Let's Encrypt/self-signed TLS), application deployment, PostgreSQL, and backups.
+
+  - name: AI SQL Assistant
+    url: https://github.com/Hazrat16/ai-sql-assistant-backend
+    descriptions:
+      - tags: [fullstack, backend, ai]
+        title: AI SQL Assistant
+        text: Built a full-stack PostgreSQL tool that turns plain-English questions into validated, read-only SQL with explanations. Fastify backend with schema introspection, OpenAI/Ollama integration, and an offline fallback; AST-based safety checks reject any generated SQL that isn't a safe read-only query. Next.js frontend with results view, schema browser, and connection management. Runs with Docker, migrations, and seeded datasets.
+
+  - name: Open-source React hooks
+    url: https://www.npmjs.com/package/block-browser-back
+    descriptions:
+      - tags: [frontend, fullstack]
+        title: "Open source: React hooks on npm"
+        text: Published two React hooks on npm, block-browser-back and checkout-risk-sdk (Checkout.com fraud-detection integration), with about 400 downloads in the past year.
+
+# Each skill line belongs to the variants in `tags`. Items matching the job are moved to the front.
+skills:
+  - label: Languages
+    tags: [fullstack, frontend, backend, ai]
+    items: [TypeScript, "JavaScript (ES6+)", HTML, CSS]
+  - label: AI Tooling
+    tags: [ai]
+    items: [Claude Code, Cursor, Codex, prompt and context engineering, OpenAI/Ollama APIs]
+  - label: Frontend
+    tags: [fullstack, frontend, ai]
+    items: [React, "Next.js (App Router, SSR/SSG)", Vite, Redux Toolkit, TanStack Query, React Router, React Hook Form, Tailwind CSS]
+  - label: UI and styling
+    tags: [frontend]
+    items: [Radix UI, Material UI, Chakra UI, Styled-Components, Chart.js, responsive design, "accessibility (ARIA)"]
+  - label: Backend
+    tags: [fullstack, backend, ai]
+    items: [Node.js, Express, Fastify, REST API design, Socket.IO, BullMQ, JWT, OAuth, Zod, Mongoose, Prisma]
+  - label: Backend (working knowledge)
+    tags: [frontend]
+    items: [Node.js, Express, REST APIs, MongoDB, PostgreSQL, Redis]
+  - label: Databases
+    tags: [fullstack, backend, ai]
+    items: ["PostgreSQL (schema design, indexing, transactions, row-level locking)", "MongoDB (indexing, aggregation)", "Redis (caching, sessions, queues)"]
+  - label: Testing
+    tags: [fullstack, frontend, backend, ai]
+    items: [Playwright, Supertest, Node.js test runner, ESLint, TypeScript strict checks]
+  - label: DevOps
+    tags: [fullstack, backend, ai]
+    items: [Docker, GitHub Actions, Nginx, "AWS (ECS, EC2, ECR, Lambda, CloudWatch)", Terraform, Sentry, Prometheus/Grafana]
+  - label: Cloud and Linux
+    tags: [devops, cloud]
+    items: ["AWS (EC2, VPC, Security Groups, IAM, ALB, S3, ECS Fargate, EKS, ECR, Lambda, DynamoDB, ElastiCache, Secrets Manager, CloudFront, CloudWatch, SNS)", Linux server administration, SSH, TCP/IP networking, "Nginx (reverse proxy, TLS)", concepts transferable to Azure and Google Cloud]
+  - label: CI/CD and Automation
+    tags: [devops, cloud]
+    items: ["GitHub Actions (OIDC, approval-based promotion)", "Jenkins (declarative pipelines, webhooks)", GHCR, Git, Makefiles, Bash, YAML]
+  - label: Containers and Orchestration
+    tags: [devops, cloud]
+    items: ["Docker (multi-stage builds)", Docker Compose, "Kubernetes (EKS, kubectl, eksctl)"]
+  - label: Infrastructure as Code
+    tags: [devops, cloud]
+    items: ["Terraform (modules, staging and production environments)", "Ansible (roles, playbooks, Ansible Vault)"]
+  - label: Monitoring and Reliability
+    tags: [devops, cloud]
+    items: [Prometheus, Grafana, Loki, CloudWatch alarms, Sentry, LogRocket, health checks, rolling deployments, ECS circuit-breaker rollback, autoscaling, backup and restore drills, runbooks, AWS budget alerts]
+  - label: Security
+    tags: [devops, cloud]
+    items: [Trivy, CodeQL, Dependabot, AWS Secrets Manager, "OIDC (no static keys)"]
+  - label: Databases and Caching
+    tags: [devops, cloud]
+    items: [PostgreSQL, MySQL, MongoDB, Redis]
+  - label: Tools
+    tags: [frontend]
+    items: [Git, GitHub Actions, Docker, Nginx, Chrome DevTools, Postman]
+  - label: Integrations and monitoring
+    tags: [fullstack, backend]
+    items: [Microsoft Graph/MSAL, OAuth, payment gateways, Sentry, LogRocket]
+
+# Mentioned above (e.g. "transferable to Azure") but not real experience: never counted as a match.
+not_claimed: [Azure, GCP]
+
+education:
+  - school: Mawlana Bhashani Science and Technology University
+    degree: B.Sc. in Information and Communication Technology, CGPA 3.53 out of 4.00
+    dates: Feb 2017 – Dec 2022
