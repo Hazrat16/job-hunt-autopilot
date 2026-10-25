@@ -36,8 +36,9 @@ export function detectVariant(title: string, description: string): Variant {
   let v: Variant;
   if (fams.has('devops') && devopsCoreRe.test(title)) v = 'devops';
   else if (fams.has('cloud') || fams.has('devops')) v = 'cloud';
-  else if (fams.has('frontend') && !fams.has('fullstack')) v = 'frontend';
-  else if (fams.has('backend') && !fams.has('fullstack')) v = 'backend';
+  // "Software Engineer, Backend" is a backend job: only an explicit full-stack title beats the specialty.
+  else if (fams.has('frontend') && !/full[- ]?stack|mern/i.test(title)) v = 'frontend';
+  else if (fams.has('backend') && !/full[- ]?stack|mern/i.test(title)) v = 'backend';
   else if (/full[- ]?stack|mern/i.test(title)) v = 'fullstack';
   // Generic titles ("Software Engineer"): decide from the description.
   else if (dev >= 5 && dev > (fe + be) * 0.8) v = 'devops';
@@ -45,7 +46,8 @@ export function detectVariant(title: string, description: string): Variant {
   else if (be >= 3 && be > fe * 1.5) v = 'backend';
   else v = 'fullstack';
 
-  if ((v === 'fullstack' || v === 'backend') && skills.has('AI coding tools')) v = 'ai';
+  // Full-stack jobs that mention agentic/AI-assisted work get the AI variant; a backend title keeps the backend CV.
+  if (v === 'fullstack' && skills.has('AI coding tools')) v = 'ai';
   return v;
 }
 

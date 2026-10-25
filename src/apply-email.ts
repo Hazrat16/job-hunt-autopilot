@@ -3,6 +3,7 @@
 import { config, type Variant } from './config.ts';
 import { tailor, type JobInput } from './cv/tailor.ts';
 import { loadProfile } from './profile.ts';
+import { detectSkills } from './skills.ts';
 
 export interface EmailApply {
   to: string;
@@ -86,15 +87,44 @@ export function detectEmailApply(description: string, applyUrl?: string | null):
   return undefined;
 }
 
-// Bullets that read naturally after "At <company>, I …".
-const VERB = /^(Built|Led|Set|Kept|Own|Owned|Reduced|Developed|Architected|Added|Integrated|Implemented|Containerized|Monitored|Optimized|Designed|Deployed|Automated|Created|Migrated|Improved|Shipped|Wrote|Ran|Delivered|Maintained|Configured|Provisioned)\b/;
+const SOURCE_NAME: Record<string, string> = {
+  hn: 'the Hacker News "Who is Hiring" thread',
+  linkedin: 'LinkedIn',
+  weworkremotely: 'We Work Remotely',
+  remoteok: 'Remote OK',
+  remotive: 'Remotive',
+  himalayas: 'Himalayas',
+  jobicy: 'Jobicy',
+  arbeitnow: 'Arbeitnow',
+  greenhouse: 'your careers page',
+  ashby: 'your careers page',
+  lever: 'your careers page',
+};
+
+const BASIC_SKILLS = new Set(['HTML/CSS', 'Git', 'Code review', 'Agile / Scrum', 'Testing', 'OOP / SOLID', 'JavaScript', 'AI coding tools']);
+
+const METRIC = /\d+(\.\d+)?\s?[%x]|\d+K\+|\d+\+|\$\d|zero\b/i;
 
 function listJoin(items: string[]): string {
   return items.length <= 2 ? items.join(' and ') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
 }
 
-/** Drafts the application email for a job (by default only when the post asks for one). */
-export function draftEmail(job: JobInput & { apply_url?: string | null }, opts: DraftOptions = {}): EmailDraft | undefined {
+/** Keeps a bullet scannable: drops a trailing clause when it runs long, never the start. */
+function trimBullet(text: string, max = 170): string {
+  let t = text.replace(/\.$/, '');
+  if (t.length > max) {
+    const cut = t.slice(0, max).search(/(;|, including|, coordinating| with [^,]*$)[^;]*$/);
+    if (cut > 60) t = t.slice(0, cut);
+  }
+  return t;
+}
+
+/**
+ * Drafts the application email for a job (by default only when the post asks for one).
+ * Recruiter-friendly shape: role and source, a one-line fit, 3 quantified wins, what the post
+ * asked for, remote logistics, a clear next step and a signature with links. Profile facts only.
+ */
+export function draftEmail(job: JobInput & { apply_url?: string | null; source?: string; seen_on?: string[] }, opts: DraftOptions = {}): EmailDraft | undefined {
   const detected = detectEmailApply(job.description, job.apply_url);
   const found: EmailApply | undefined = detected ?? (opts.always ? { to: '', evidence: '' } : undefined);
   if (!found) return undefined;
@@ -102,37 +132,72 @@ export function draftEmail(job: JobInput & { apply_url?: string | null }, opts: 
   const cv = tailor(job, opts.variant);
   const b = p.basics;
   const years = `${Math.floor(config.experience_years)}+ years`;
-  const company = job.company && !/^unknown/i.test(job.company) ? job.company : 'your team';
+  const company = job.company && !/^unknown/i.test(job.company) ? job.company : '';
+  const pretty = (skill: string) => skill.replace(/ \/ /g, '/');
+  // Lead with skills that sell; basics like HTML/CSS or Git add nothing in an opening line.
+  const stack = cv.coreStack.filter((sk) => !BASIC_SKILLS.has(sk)).slice(0, 4).map(pretty);
 
-  // Your two strongest bullets for this job, from different employers when possible.
+  // Three wins: the ones naming the most skills this job asks for, numbers preferred, at most two per employer.
+  const wanted = new Set(cv.report.matched);
   const ranked = cv.experience
     .flatMap((x) => x.bullets.map((bl) => ({ ...bl, company: x.company.split(' — ')[0] })))
-    .filter((bl) => VERB.test(bl.text))
-    .sort((a, b) => b.score - a.score);
-  const picks = ranked.slice(0, 1);
-  const other = ranked.find((bl) => bl.company !== picks[0]?.company && bl.score >= (picks[0]?.score ?? 0) - 10) ?? ranked[1];
-  if (other) picks.push(other);
-  const sentence = (t: string) => `${t.charAt(0).toLowerCase()}${t.slice(1).replace(/\.?$/, '.')}`;
-  const highlights = picks.map((bl, i) =>
-    i > 0 && bl.company === picks[0].company ? `I also ${sentence(bl.text)}` : `At ${bl.company}, I ${sentence(bl.text)}`,
-  );
-  const project = cv.projects.find((pr) => pr.url);
-  const github = b.links.find((l) => /github/i.test(l.url));
-  const wantsGithub = /github|project|code|portfolio|repo/i.test(found.asksFor ?? found.evidence);
+    .map((bl) => {
+      const hits = [...detectSkills(bl.text, false)].filter((sk) => wanted.has(sk)).length;
+      return { ...bl, rank: hits * 5 + (METRIC.test(bl.text) ? 5 : 0) + bl.score };
+    })
+    .sort((a, b) => b.rank - a.rank);
+  const wins: typeof ranked = [];
+  for (const bl of ranked) {
+    if (wins.length === 3) break;
+    if (wins.filter((w) => w.company === bl.company).length < 2) wins.push(bl);
+  }
 
-  const paragraphs = [
-    `${found.contactName ? `Hi ${found.contactName}` : 'Dear Hiring Team'},`,
-    `I'm applying for the ${job.title} role at ${company}. I'm a ${cv.headline} with ${years} of production experience` +
-      (cv.coreStack.length >= 2 ? `, and my background covers much of your stack: ${listJoin(cv.coreStack.slice(0, 5))}.` : '.'),
-    highlights.join(' '),
-    project ? `Some related work: ${project.title.replace(/:.*$/, '')} (${project.url}).${wantsGithub && github ? ` More on my GitHub: ${github.url}` : ''}` : wantsGithub && github ? `My GitHub: ${github.url}` : '',
-    `I've attached my CV, tailored to this role.${b.availability ? ` ${b.availability}` : ''} I'd be glad to talk about how I can help ${company}.`,
-    `Best regards,\n${b.name}\n${[b.phone, b.email].join(' | ')}\n${b.links.map((l) => l.label).join(' | ')}`,
-  ].filter(Boolean);
+  const link = (re: RegExp) => b.links.find((l) => re.test(l.url))?.url;
+  const linkedin = link(/linkedin/i);
+  const github = link(/github/i);
+  const project = cv.projects.find((pr) => pr.url);
+  const asked = `${found.asksFor ?? ''} ${found.evidence}`;
+  const wantsCode = /github|project|code|portfolio|repo|pr\b|built/i.test(asked);
+  const wantsLinkedin = /linkedin/i.test(asked);
+  const source = SOURCE_NAME[job.source ?? job.seen_on?.[0] ?? ''];
+  const remoteTeams = p.experience
+    .filter((x) => /remote/i.test(x.location) && /,/.test(x.location))
+    .map((x) => `${x.company.split(' — ')[0]}, ${x.location.split(',')[0]}`);
+
+  const greeting = found.contactName ? `Hi ${found.contactName},` : company ? `Dear ${company} Hiring Team,` : 'Dear Hiring Manager,';
+  const intro =
+    `I'm writing to apply for the ${job.title} role${company ? ` at ${company}` : ''}${source ? `, which I came across on ${source}` : ''}. ` +
+    `I'm a ${cv.headline} with ${years} of production experience${stack.length >= 2 ? ` in ${listJoin(stack)}, which lines up closely with this role` : ''}.`;
+  const winsBlock = wins.length ? `A few highlights:\n${wins.map((w) => `• ${w.company}: ${trimBullet(w.text)}`).join('\n')}` : '';
+
+  const extras: string[] = [];
+  if (project) extras.push(`Relevant project: ${project.title.replace(/:.*$/, '')} – ${project.url}`);
+  if (wantsCode && github) extras.push(`GitHub: ${github}`);
+  if (wantsLinkedin && linkedin) extras.push(`LinkedIn: ${linkedin}`);
+  const extrasBlock = extras.length ? `${found.asksFor ? 'As requested:' : 'You can see more of my work here:'}\n${extras.join('\n')}` : '';
+
+  const logistics = [
+    `I'm based in ${b.location.split(',').at(-1)!.trim()}${b.timezone ? ` (${b.timezone})` : ''}` +
+      (remoteTeams.length ? ` and have worked remotely with international teams (${remoteTeams.join('; ')}).` : '.'),
+    b.availability ?? '',
+  ].filter(Boolean).join(' ');
+
+  const closing = `My CV is attached. Would you be open to a short call to discuss the role? I'm happy to work around your schedule.`;
+  const signature = [
+    'Best regards,',
+    b.name,
+    cv.headline,
+    `${b.phone} · ${b.email}`,
+    ...(linkedin ? [`LinkedIn: ${linkedin}`] : []),
+    ...(github ? [`GitHub: ${github}`] : []),
+  ].join('\n');
+
+  const body = [greeting, intro, winsBlock, extrasBlock, logistics, closing, signature].filter(Boolean).join('\n\n');
 
   // Posts sometimes give a template, e.g. "Forward Deployed: your name, your city".
   const subject =
     found.subjectHint?.replace(/\byour (full )?name\b/i, b.name).replace(/\byour (city|location)\b/i, b.location.split(',')[0]) ??
-    `Application: ${job.title}${found.reference ? ` (Ref ${found.reference})` : ''} – ${b.name}`;
-  return { ...found, subject, body: paragraphs.join('\n\n'), detected: Boolean(detected) };
+    `Application: ${job.title}${found.reference ? ` (Ref ${found.reference})` : ''} – ${b.name}` +
+      (stack.length >= 2 ? ` | ${years.replace(' years', ' yrs')} ${stack.slice(0, 2).join('/')}` : '');
+  return { ...found, subject, body, detected: Boolean(detected) };
 }

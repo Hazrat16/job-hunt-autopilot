@@ -20,7 +20,7 @@ export interface SkillLine { label: string; tags: Variant[]; items: string[] }
 export type Section = 'ai_practice' | 'experience' | 'skills' | 'projects' | 'education';
 
 export interface Profile {
-  basics: { name: string; email: string; phone: string; location: string; links: { label: string; url: string }[]; availability?: string };
+  basics: { name: string; email: string; phone: string; location: string; links: { label: string; url: string }[]; timezone?: string; availability?: string };
   variants: Record<Variant, { title: string; summary: string; sections: Section[] }>;
   ai_practice: string[];
   experience: Experience[];
