@@ -10,6 +10,7 @@ import {
 } from './db.ts';
 import type { Eligibility } from './eligibility.ts';
 import { addManualJob, fetchAllShared, type SourceReport } from './pipeline.ts';
+import { detectEmailApply, draftEmail } from './apply-email.ts';
 import { escapeHtml as e, sleep } from './util.ts';
 
 const ELIG_ICON: Record<Eligibility, string> = { worldwide: '🌍', asia: '🌏', unknown: '❓', restricted: '🚫' };
@@ -73,13 +74,17 @@ function jobCard(j: JobRow): string {
     `${e(j.seniority)} · ${e(j.eligibility_reason.slice(0, 80))}`,
     j.matched.length ? `✅ ${e(j.matched.slice(0, 10).join(', '))}${j.matched.length > 10 ? '…' : ''}` : '',
     j.missing.length ? `❌ ${e(j.missing.slice(0, 8).join(', '))}` : '',
+    emailTo(j) ? `✉️ Apply by email: ${e(emailTo(j)!)}` : '',
     `${link ? `<a href="${e(link)}">Open job</a> · ` : ''}#${j.id}${j.status !== 'new' ? ` · <i>${j.status}</i>` : ''}`,
   ];
   return lines.filter(Boolean).join('\n');
 }
 
+const emailTo = (j: JobRow) => detectEmailApply(j.description, j.apply_url)?.to;
+
 function jobButtons(j: JobRow): Button[][] {
   const row: Button[] = [{ text: '📄 CV', callback_data: `cv:${j.id}` }];
+  if (emailTo(j)) row.push({ text: '✉️ Email', callback_data: `em:${j.id}` });
   if (j.status === 'new' || j.status === 'saved') {
     row.push({ text: '✅ Applied', callback_data: `st:${j.id}:applied` }, { text: '🙈 Skip', callback_data: `st:${j.id}:skipped` });
   }
@@ -202,6 +207,18 @@ async function onCallback(q: any) {
   if (kind === 'cv') {
     await call('answerCallbackQuery', { callback_query_id: q.id, text: 'Making your CV…' });
     return sendCv(chatId, j);
+  }
+  if (kind === 'em') {
+    await call('answerCallbackQuery', { callback_query_id: q.id });
+    const d = draftEmail(j);
+    if (!d) return send(chatId, 'No email address to apply to in this post.');
+    // Body in a code block so it copies cleanly with one tap.
+    return send(
+      chatId,
+      `✉️ <b>Email application</b> for ${e(j.title)} @ ${e(j.company)}\n<b>To:</b> <code>${e(d.to)}</code>\n<b>Subject:</b> <code>${e(d.subject)}</code>` +
+        (d.asksFor ? `\n<b>They ask for:</b> ${e(d.asksFor)}` : '') +
+        `\n\n<pre>${e(d.body)}</pre>\nAttach your CV (tap 📄 CV) before sending.`,
+    );
   }
   if (kind === 'st') {
     setStatus(j.id, status as Status);

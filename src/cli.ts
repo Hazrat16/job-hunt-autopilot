@@ -119,6 +119,9 @@ async function cmdJob(argv: string[]) {
   console.log(`Posted:      ${j.posted_at?.slice(0, 10) ?? '?'}   seen on ${j.seen_on.join(', ')}`);
   console.log(`Link:        ${j.apply_url ?? j.url}`);
   if (j.notes) console.log(`Notes:       ${j.notes}`);
+  const { draftEmail } = await import('./apply-email.ts');
+  const mail = draftEmail(j);
+  if (mail) console.log(`Email:       apply by email to ${mail.to}, subject "${mail.subject}" (draft in the dashboard or the bot's ✉️ button)`);
   console.log(`\n${j.description.slice(0, 1500)}${j.description.length > 1500 ? '…' : ''}\n`);
   console.log(`CV:          npm run cv -- ${j.id}\n`);
 }

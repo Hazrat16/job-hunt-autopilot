@@ -11,16 +11,17 @@ import {
 } from './db.ts';
 import type { Eligibility } from './eligibility.ts';
 import { addManualJob, fetchAllShared } from './pipeline.ts';
+import { detectEmailApply, draftEmail } from './apply-email.ts';
 
 const STATUSES: Status[] = ['new', 'saved', 'applied', 'interview', 'offer', 'rejected', 'skipped'];
 const ELIGIBILITY: Eligibility[] = ['worldwide', 'asia', 'unknown', 'restricted'];
 
 const list = (v: unknown) => (typeof v === 'string' && v ? v.split(',') : undefined);
 
-/** List rows without the (long) description. */
+/** List rows without the (long) description; flags jobs that want an email application. */
 function summary(j: JobRow) {
   const { description, dedupe_key, location_hints, ...rest } = j;
-  return rest;
+  return { ...rest, apply_email: detectEmailApply(description, j.apply_url)?.to ?? null };
 }
 
 function jobOr404(req: Request, res: Response): JobRow | undefined {
@@ -68,7 +69,7 @@ export function createApp() {
 
   app.get('/api/jobs/:id', (req, res) => {
     const j = jobOr404(req, res);
-    if (j) res.json({ ...j, events: jobEvents(j.id) });
+    if (j) res.json({ ...j, events: jobEvents(j.id), emailDraft: draftEmail(j) ?? null });
   });
 
   app.patch('/api/jobs/:id', (req, res) => {
@@ -80,7 +81,8 @@ export function createApp() {
       if (status !== j.status) setStatus(j.id, status);
     }
     if (typeof notes === 'string') setNotes(j.id, notes);
-    res.json({ ...getJob(j.id)!, events: jobEvents(j.id) });
+    const updated = getJob(j.id)!;
+    res.json({ ...updated, events: jobEvents(j.id), emailDraft: draftEmail(updated) ?? null });
   });
 
   app.post('/api/jobs', async (req, res, next) => {

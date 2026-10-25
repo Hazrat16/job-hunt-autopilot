@@ -16,6 +16,8 @@ basics:
       url: https://linkedin.com/in/smhazratali
     - label: github.com/Hazrat16
       url: https://github.com/Hazrat16
+  # Used in application emails. Leave empty to leave it out.
+  availability: I'm currently on a contract, so I'm available to start immediately.
 
 variants:
   fullstack:

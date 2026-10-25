@@ -203,6 +203,7 @@ function renderList() {
           <div class="meta">
             <span>${icon(e.icon)}${e.label}</span>
             <span>${icon('clock')}${ago(j.posted_at || j.first_seen)}</span>
+            ${j.apply_email ? `<span title="Apply by email: ${esc(j.apply_email)}">${icon('mail')}Email</span>` : ''}
             ${isNew(j) ? '<span class="new-dot">NEW</span>' : ''}
             ${j.status !== 'new' ? `<span class="pill ${j.status}">${j.status}</span>` : ''}
           </div>
@@ -288,6 +289,8 @@ function renderDetail() {
       </select>
     </div>
 
+    ${j.emailDraft ? emailCard(j.emailDraft) : ''}
+
     <div class="card">
       ${cardHead('gauge', 'Why this score', `${j.matched.length} skills matched, ${j.missing.length} missing`)}
       <dl class="match-grid">
@@ -319,6 +322,27 @@ function renderDetail() {
     </div>
   </div>`;
   if (state.cvOpen) loadPreview();
+}
+
+function emailCard(d) {
+  return `<div class="card email-card">
+    ${cardHead('mail', 'Apply by email', 'This post asks for applications by email. The draft only uses facts from your profile; edit it freely.')}
+    <blockquote class="evidence">“${esc(d.evidence)}”</blockquote>
+    ${d.asksFor ? `<p class="asks">${icon('help')}<span><b>They also ask for:</b> ${esc(d.asksFor)}</span></p>` : ''}
+    <div class="mail-field"><label for="mailTo">To</label><input id="mailTo" value="${esc(d.to)}" readonly><button class="btn icon-btn ghost" data-copy="mailTo" title="Copy address">${icon('copy')}</button></div>
+    <div class="mail-field"><label for="mailSubject">Subject</label><input id="mailSubject" value="${esc(d.subject)}"><button class="btn icon-btn ghost" data-copy="mailSubject" title="Copy subject">${icon('copy')}</button></div>
+    <textarea id="mailBody" class="mail-body" rows="14" aria-label="Email body">${esc(d.body)}</textarea>
+    <div class="mail-actions">
+      <button class="btn primary" id="gmailBtn">${icon('external')}Open in Gmail</button>
+      <button class="btn" id="mailtoBtn">${icon('mail')}Open in mail app</button>
+      <button class="btn ghost" data-copy="mailBody">${icon('copy')}Copy body</button>
+      <span class="muted">Remember to attach your tailored CV (below).</span>
+    </div>
+  </div>`;
+}
+
+function mailParts() {
+  return { to: $('#mailTo').value, subject: $('#mailSubject').value, body: $('#mailBody').value };
 }
 
 function variantSelect() {
@@ -492,7 +516,27 @@ $('#detail').addEventListener('click', async (e) => {
     loadJobs();
     return;
   }
+  const copy = e.target.closest('[data-copy]');
+  if (copy) {
+    try {
+      await navigator.clipboard.writeText($(`#${copy.dataset.copy}`).value);
+      toast('Copied');
+    } catch {
+      $(`#${copy.dataset.copy}`).select();
+      toast('Press Ctrl+C to copy', { error: true });
+    }
+    return;
+  }
   const id = e.target.closest('button')?.id;
+  if (id === 'gmailBtn' || id === 'mailtoBtn') {
+    const m = mailParts();
+    const url =
+      id === 'gmailBtn'
+        ? `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(m.to)}&su=${encodeURIComponent(m.subject)}&body=${encodeURIComponent(m.body)}`
+        : `mailto:${m.to}?subject=${encodeURIComponent(m.subject)}&body=${encodeURIComponent(m.body)}`;
+    window.open(url, id === 'gmailBtn' ? '_blank' : '_self');
+    return;
+  }
   if (id === 'makeCv') {
     state.cvOpen = true;
     const v = $('#variant').value;

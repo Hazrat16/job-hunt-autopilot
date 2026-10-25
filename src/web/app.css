@@ -310,6 +310,18 @@ textarea.notes { width: 100%; padding: 12px; resize: vertical; min-height: 84px;
 .desc.folded { max-height: 240px; overflow: hidden; -webkit-mask-image: linear-gradient(#000 65%, transparent); mask-image: linear-gradient(#000 65%, transparent); }
 .unfold { margin-top: 10px; }
 
+/* ---------- Apply by email ---------- */
+.email-card { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+.email-card .card-head .ico { background: var(--accent-soft); color: var(--accent); }
+.evidence { margin: 0 0 12px; padding: 10px 14px; border-left: 3px solid var(--accent); background: var(--surface-2); border-radius: 0 var(--r-sm) var(--r-sm) 0; color: var(--text-2); font-size: 13px; font-style: italic; }
+.asks { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 12px; padding: 10px 12px; border-radius: var(--r-sm); background: var(--mid-soft); color: var(--text); font-size: 13px; }
+.asks .i { color: var(--mid); margin-top: 2px; }
+.mail-field { display: grid; grid-template-columns: 70px 1fr 36px; gap: 8px; align-items: center; margin-bottom: 8px; }
+.mail-field label { color: var(--text-3); font-size: 12.5px; font-weight: 500; }
+.mail-field input { height: 36px; padding: 0 10px; min-width: 0; }
+.mail-body { width: 100%; padding: 12px; margin-top: 4px; line-height: 1.6; resize: vertical; font-size: 13.5px; }
+.mail-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+
 /* ---------- Pipeline ---------- */
 .pipeline-view { flex: 1; overflow: auto; padding: 24px; }
 .board-head h1 { margin: 0; font-size: 20px; letter-spacing: -.02em; }
