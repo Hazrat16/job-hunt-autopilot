@@ -119,6 +119,12 @@ src/
 - **ATS report:** "covers 15 of 16 job keywords (94%). Missing: Microservices (not in your profile)." Measured on the final PDF text.
 - Hyphenated words no longer break across lines; project links read "GitHub"/"npm" (no arrows); "Engineering practices" skill line restored.
 
-**Written but not tested yet (Phase 2):** source fetchers in `src/sources/` (`boards.ts`, `companies.ts`, `linkedin.ts`, `manual.ts`).
+**Phase 2 is done and awaiting tuning.**
+- All 11 sources verified on a live run (2026-10-25): 313 unique jobs in about 45s. 42 worldwide, 6 Asia-friendly, 17 unknown, 248 restricted.
+- `src/db.ts`: SQLite (`data/jobs.db`). Dedupe is by company + normalized title, and keeps the longest description across boards.
+- `src/eligibility.ts`: description phrases ("must be based in the US", "US work authorization", clearance) beat location fields. A named country, region or timezone means restricted. A city alone means restricted unless the field also says remote. LinkedIn cards name one country, so anything outside Bangladesh is restricted. LinkedIn only fetches descriptions for jobs that aren't restricted.
+- `scoreJob` in `src/match.ts`: role 30 + skills up to 50 (match ratio pulled toward 50% when few skills are detected) + eligibility up to 15 + seniority. Missing skills cost 2 each, a missing language 6, a missing language on a requirement line 20, and a missing skill named in the title 25. Restricted jobs are capped at 20.
+- CLI: `npm run fetch`, `npm run jobs`, `npm run job -- <id>`, `npm run status -- <id> applied`, `npm run rescore`, `npm run cv -- <id>`.
+- Jobs older than `max_job_age_days` (30) are ignored.
 
 **Note:** the original PDFs are US Legal (8.5×14″). Generated CVs are A4 by default (`cv.paper` in `config.yaml`).

@@ -4,6 +4,11 @@
   "description": "Remote job finder + per-job tailored CV generator",
   "scripts": {
     "cv": "node --no-warnings=ExperimentalWarning src/cli.ts cv",
+    "fetch": "node --no-warnings=ExperimentalWarning src/cli.ts fetch",
+    "jobs": "node --no-warnings=ExperimentalWarning src/cli.ts jobs",
+    "job": "node --no-warnings=ExperimentalWarning src/cli.ts job",
+    "status": "node --no-warnings=ExperimentalWarning src/cli.ts status",
+    "rescore": "node --no-warnings=ExperimentalWarning src/cli.ts rescore",
     "typecheck": "tsc"
   },
   "author": "",

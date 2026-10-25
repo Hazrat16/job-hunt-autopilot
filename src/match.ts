@@ -1,10 +1,15 @@
 import { config, type Variant } from './config.ts';
 import { detectSkills } from './skills.ts';
 import { phraseRegex } from './util.ts';
+import { eligibility, type Eligibility } from './eligibility.ts';
+import { profileSkills } from './profile.ts';
+import type { RawJob } from './sources/types.ts';
 
 const DEVOPS_SKILLS = new Set(['Kubernetes', 'Terraform', 'Ansible', 'AWS', 'Azure', 'GCP', 'CI/CD', 'Linux', 'Helm', 'Argo CD / GitOps', 'Prometheus', 'Grafana', 'Observability', 'Datadog', 'Jenkins', 'GitLab CI', 'GitHub Actions', 'Bash', 'Docker', 'Security scanning', 'Serverless', 'Nginx']);
 const FRONTEND_SKILLS = new Set(['React', 'Next.js', 'Redux', 'TanStack Query', 'Tailwind CSS', 'Vite', 'HTML/CSS', 'Accessibility', 'Vue.js', 'Angular', 'Playwright']);
 const BACKEND_SKILLS = new Set(['Node.js', 'Express', 'Fastify', 'NestJS', 'REST APIs', 'GraphQL', 'MongoDB', 'PostgreSQL', 'MySQL', 'Redis', 'Prisma', 'Message queues', 'Microservices', 'Socket.IO / WebSockets', 'JWT']);
+
+const LANGUAGES = new Set(['Python', 'Go', 'Java', 'PHP', 'Ruby', '.NET / C#', 'Rust', 'C++', 'Scala', 'Elixir', 'Kotlin', 'Haskell', 'Clojure', 'Erlang', 'OCaml']);
 
 const roleRe = Object.fromEntries(Object.entries(config.roles).map(([k, v]) => [k, phraseRegex(v)])) as Record<Exclude<Variant, 'ai'>, RegExp>;
 const excludeRe = phraseRegex(config.exclude_titles);
@@ -73,4 +78,65 @@ export function seniorityFit(title: string, description: string): { delta: numbe
   if (phraseRegex(config.seniority.title_penalty).test(title)) return { delta: -25, note: 'staff/principal title' };
   if (phraseRegex(config.seniority.title_bonus).test(title)) return { delta: 5, note: 'junior/mid title' };
   return { delta: 0, note: 'years not stated' };
+}
+
+const REQUIREMENT_LINE = /\b(strong|solid|deep|proficien|expert|fluent|required|must|essential|\d\+? ?years?)/i;
+
+/** Skills named on a line that reads like a hard requirement ("Strong Haskell skills", "3+ years of Go"). */
+function requiredSkills(description: string): Set<string> {
+  const out = new Set<string>();
+  for (const line of description.split('\n')) {
+    if (line.length < 200 && REQUIREMENT_LINE.test(line) && !/nice to have|bonus|plus\b|preferred/i.test(line)) {
+      for (const s of detectSkills(line, false)) out.add(s);
+    }
+  }
+  return out;
+}
+
+export interface JobScore {
+  score: number;
+  variant: Variant;
+  eligibility: Eligibility;
+  eligibilityReason: string;
+  matched: string[];
+  missing: string[];
+  seniority: string;
+}
+
+/**
+ * Match score 0–100: role fit (30), skill overlap (up to 50), eligibility (up to 15),
+ * plus the seniority adjustment. Restricted jobs are capped at 20 so they never reach the digest.
+ */
+export type ScoreInput = Pick<RawJob, 'title' | 'description' | 'location' | 'locationHints'>;
+
+export function scoreJob(job: ScoreInput): JobScore {
+  const mine = profileSkills();
+  const jobSkills = [...detectSkills(`${job.title}\n${job.description}`)];
+  const matched = jobSkills.filter((s) => mine.has(s));
+  const missing = jobSkills.filter((s) => !mine.has(s));
+  const el = eligibility(job);
+  const sen = seniorityFit(job.title, job.description);
+
+  const role = isRelevantTitle(job.title) ? 30 : 0;
+  // Match ratio pulled toward 50% when few skills are detected: 3 of 3 is weaker evidence than 12 of 12.
+  const overlap = (matched.length + 1.5) / (jobSkills.length + 3);
+  // Every missing skill also costs a little, so a long list of gaps outweighs a high ratio.
+  // A missing language costs more (it's usually the job's main stack), and one named in the title most.
+  const titleSkills = detectSkills(job.title);
+  const required = requiredSkills(job.description);
+  const gaps = missing.reduce((n, s) => n + (titleSkills.has(s) ? 25 : LANGUAGES.has(s) ? (required.has(s) ? 20 : 6) : 2), 0);
+  const skills = 50 * overlap - Math.min(gaps, 35);
+  const elig = { worldwide: 15, asia: 15, unknown: 5, restricted: 0 }[el.eligibility];
+  let score = Math.round(Math.max(0, Math.min(100, role + skills + elig + sen.delta)));
+  if (el.eligibility === 'restricted') score = Math.min(score, 20);
+
+  return {
+    score,
+    variant: detectVariant(job.title, job.description),
+    eligibility: el.eligibility,
+    eligibilityReason: el.reason,
+    matched,
+    missing,
+    seniority: sen.note,
+  };
 }

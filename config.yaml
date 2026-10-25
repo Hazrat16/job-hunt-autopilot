@@ -9,7 +9,7 @@ roles:
   fullstack: [full stack, full-stack, fullstack, software engineer, software developer, product engineer, javascript developer, javascript engineer, typescript developer, typescript engineer, mern]
 
 # Titles containing any of these are dropped entirely.
-exclude_titles: [sales, account executive, marketing, recruiter, recruiting, customer success, designer, data scientist, data analyst, machine learning, ml engineer, android, ios, mobile, flutter, qa tester, manual qa, director, vp, vice president, head of, intern, internship, php, laravel, wordpress, ".net", "c#", java developer, java engineer, python developer, golang, ruby, rails, salesforce, sap, embedded, firmware, teacher, tutor, writer, annotation, ai trainer, unity, game]
+exclude_titles: [sales, account executive, marketing, recruiter, recruiting, customer success, designer, data scientist, data analyst, machine learning, ml engineer, android, ios, mobile, flutter, qa tester, manual qa, director, engineering manager, product manager, vp, vice president, head of, intern, internship, php, laravel, wordpress, ".net", "c#", java developer, java engineer, python developer, golang, ruby, rails, salesforce, sap, embedded, firmware, teacher, tutor, writer, annotation, ai trainer, unity, game]
 
 # Seniority is judged from the years the job asks for ("5+ years"), not the title.
 experience_years: 3.5
@@ -30,6 +30,9 @@ linkedin:
   max_detail_fetches: 40  # job descriptions fetched per run (polite rate)
 
 hn_whos_hiring: true
+
+# Jobs posted longer ago than this are ignored when fetching.
+max_job_age_days: 30
 
 # Companies whose public job boards are checked directly.
 watchlist:

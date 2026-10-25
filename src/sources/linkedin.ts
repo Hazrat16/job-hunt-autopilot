@@ -2,6 +2,7 @@
 // No account or cookies are used, so your personal profile can never be flagged.
 import * as cheerio from 'cheerio';
 import type { RawJob, Source } from './types.ts';
+import { eligibility } from '../eligibility.ts';
 import { getText, htmlToText, sleep, toIso } from '../util.ts';
 
 const SEARCH = 'https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search';
@@ -72,7 +73,8 @@ export function linkedin(opts: LinkedInOptions): Source {
               title,
               company: card.find('.base-search-card__subtitle').text().trim(),
               location,
-              locationHints: [],
+              // The card names one place; outside Bangladesh that means remote within that country.
+              locationHints: location ? [location] : [],
               description: '',
               postedAt: toIso(card.find('time').attr('datetime')),
             });
@@ -82,10 +84,12 @@ export function linkedin(opts: LinkedInOptions): Source {
         }
       }
 
-      // Search cards have no description; fetch details for a capped number, slowly.
+      // Search cards have no description; fetch details for a capped number, slowly,
+      // and only for jobs you could be hired for.
       const jobs = [...found.values()];
       let fetched = 0;
       for (const job of jobs) {
+        if (eligibility(job).eligibility === 'restricted') continue;
         if (fetched >= opts.max_detail_fetches) break;
         try {
           job.description = (await fetchLinkedInDetail(job.sourceId)).description;

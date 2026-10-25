@@ -20,6 +20,7 @@ export interface Config {
   eligible_locations: string[];
   linkedin: { enabled: boolean; queries: string[]; hours_back: number; pages_per_query: number; max_detail_fetches: number };
   hn_whos_hiring: boolean;
+  max_job_age_days: number;
   watchlist: { greenhouse: string[]; ashby: string[]; lever: string[] };
   digest: { min_score: number; max_jobs: number; include_unknown_location: boolean; follow_up_after_days: number };
   schedule: { fetch_every_hours: number; digest_at: string };

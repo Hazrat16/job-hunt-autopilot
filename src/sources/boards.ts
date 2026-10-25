@@ -188,19 +188,22 @@ export const hnWhosHiring: Source = {
       if (!c.text) continue;
       const text = htmlToText(c.text);
       if (!/remote/i.test(text)) continue;
-      // Convention: "Company | Role | Location | REMOTE | ..." on the first line.
-      const firstLine = text.split('\n')[0];
-      const parts = firstLine.split('|').map((s) => s.trim());
-      const company = parts[0]?.slice(0, 80) || 'Unknown';
-      const roleGuess = parts.slice(1).find((p) => isRelevant(p)) ?? (isRelevant(text.slice(0, 400)) ? parts[1] : undefined);
+      // Convention: "Company | Role | Location | REMOTE | ..." on the first line, but the parts come in any order.
+      const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+      const parts = lines[0].split('|').map((s) => s.trim()).filter(Boolean);
+      const company = parts[0]?.replace(/\s*\(?https?:\/\/\S+\)?/g, '').slice(0, 80) || 'Unknown';
+      const looksLikeRole = (s: string) => s.length < 120 && !/https?:|[/\\^$]{2}/.test(s) && isRelevant(s);
+      // Several roles are often listed on later lines ("• Senior Backend Engineer").
+      const roleGuess = parts.slice(1).find(looksLikeRole) ?? lines.slice(1, 15).map((l) => l.replace(/^[•*\-\s]+/, '')).find(looksLikeRole);
       if (!roleGuess) continue;
+      const location = parts.slice(1).filter((p) => /remote|on-?site|hybrid|in[- ]person|relocat/i.test(p)).join(' | ');
       out.push({
         source: 'hn',
         sourceId: String(c.id),
         url: `https://news.ycombinator.com/item?id=${c.id}`,
         title: roleGuess.slice(0, 120),
         company,
-        location: parts.slice(2).join(' | ').slice(0, 120),
+        location: location.slice(0, 160),
         locationHints: [],
         description: text,
         postedAt: toIso(c.created_at),
