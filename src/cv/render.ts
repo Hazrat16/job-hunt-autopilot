@@ -6,7 +6,8 @@ import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { config, env, OUTPUT_DIR } from '../config.ts';
 import { PAPER, renderHtml, type Paper } from './template.ts';
-import type { TailoredCv } from './tailor.ts';
+import * as cheerio from 'cheerio';
+import { addToSkills, keywordCoverage, uncovered, type KeywordCoverage, type TailoredCv } from './tailor.ts';
 
 const run = promisify(execFile);
 export const FONT_DIR = path.join(import.meta.dirname, 'fonts');
@@ -42,7 +43,7 @@ async function printedBottomPx(pdf: string): Promise<number | undefined> {
   }
 }
 
-export interface RenderResult { pdf: string; html: string; pages?: number; fontSize: string; dropped: string[] }
+export interface RenderResult { pdf: string; html: string; pages?: number; fontSize: string; dropped: string[]; coverage: KeywordCoverage }
 
 export function cvFileName(cv: TailoredCv, name: string): string {
   const who = name.replace(/^[A-Z]\.?[A-Z]?\.?\s*/, '').replace(/\W+/g, '_');
@@ -53,12 +54,28 @@ const BOTTOM_MARGIN_MM = 9;
 const mmToPx = (mm: number) => (mm * 96) / 25.4;
 
 /**
+ * Renders the CV, then checks the final text: if fitting dropped the only bullet that named a
+ * matched skill, that skill is added to the skills section and the CV is rendered again.
+ */
+export async function renderCv(cv: TailoredCv, outDir: string, paper: Paper = config.cv.paper): Promise<RenderResult> {
+  for (let i = 0; ; i++) {
+    const r = await renderOnce(cv, outDir, paper);
+    const html = fs.readFileSync(r.html, 'utf8').replace(/<\/(li|p|div|h1|h2)>/g, '\n$&');
+    const $ = cheerio.load(html);
+    const text = $('.page').text();
+    const lost = uncovered(cv, ($('.core').remove(), $('.page').text()));
+    if (!lost.length || i === 2) return { ...r, coverage: keywordCoverage(cv, text) };
+    cv = addToSkills(cv, lost);
+  }
+}
+
+/**
  * Chrome lays text out slightly tighter when printing than on screen, so a screen-measured
  * fit leaves empty space. We fit, print, measure where the printed text really ends, then
  * re-fit with the corrected ratio, and finally verify the PDF is a single page.
  * @param outDir folder for the files; the PDF gets a clean, recruiter-friendly name.
  */
-export async function renderCv(cv: TailoredCv, outDir: string, paper: Paper = config.cv.paper): Promise<RenderResult> {
+async function renderOnce(cv: TailoredCv, outDir: string, paper: Paper): Promise<Omit<RenderResult, 'coverage'>> {
   fs.mkdirSync(outDir, { recursive: true });
   const base = path.join(outDir, cvFileName(cv, cv.basics.name));
   const fontBase = pathToFileURL(FONT_DIR).href;

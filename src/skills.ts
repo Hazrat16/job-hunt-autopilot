@@ -56,6 +56,9 @@ const SKILLS: Record<string, string[]> = {
   Testing: ['unit testing', 'unit tests', 'integration tests', 'integration testing', 'e2e', 'end-to-end tests', 'supertest', 'tdd'],
   Git: ['git'],
   Microservices: ['microservices', 'microservice'],
+  'OOP / SOLID': ['oop', 'object oriented', 'solid principles', 'design patterns'],
+  'Code review': ['code review', 'code reviews'],
+  'Agile / Scrum': ['agile', 'scrum'],
   'LLM / AI APIs': ['llm', 'llms', 'openai', 'rag', 'langchain', 'ollama', 'generative ai'],
   'AI coding tools': ['claude code', 'cursor', 'copilot', 'agentic', 'ai-assisted', 'ai assisted'],
   Python: ['python', 'django', 'flask', 'fastapi'],
@@ -107,4 +110,10 @@ export function skillFrequency(text: string): Map<string, number> {
     freq.set(name, text.match(re)?.length ?? 1);
   }
   return freq;
+}
+
+/** The exact wording `text` uses for a skill, e.g. "EKS" for Kubernetes. */
+export function skillMention(text: string, skill: string): string | undefined {
+  const re = compiled.find((c) => c.name === skill)?.re;
+  return re && text.match(re)?.[0];
 }

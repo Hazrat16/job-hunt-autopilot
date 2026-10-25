@@ -259,6 +259,9 @@ skills:
   - label: Testing
     tags: [fullstack, frontend, backend, ai]
     items: [Playwright, Supertest, Node.js test runner, ESLint, TypeScript strict checks]
+  - label: Engineering practices
+    tags: [fullstack, frontend, backend, ai]
+    items: [OOP, SOLID, design patterns, code review, Agile/Scrum]
   - label: DevOps
     tags: [fullstack, backend, ai]
     items: [Docker, GitHub Actions, Nginx, "AWS (ECS, EC2, ECR, Lambda, CloudWatch)", Terraform, Sentry, Prometheus/Grafana]

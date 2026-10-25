@@ -2,7 +2,7 @@
 // your own bullets/projects/skills and never writes new claims.
 import { config, type Variant } from '../config.ts';
 import { loadProfile, profileSkills, type Profile, type Section } from '../profile.ts';
-import { detectSkills, skillFrequency } from '../skills.ts';
+import { detectSkills, skillFrequency, skillMention } from '../skills.ts';
 import { detectVariant } from '../match.ts';
 
 export interface JobInput { title: string; company?: string; description: string }
@@ -11,6 +11,8 @@ export interface TailoredCv {
   variant: Variant;
   headline: string;
   summary: string;
+  /** Matched job skills, most-mentioned first, shown as one line under the summary. */
+  coreStack: string[];
   basics: Profile['basics'];
   sections: Section[];
   aiPractice: string[];
@@ -31,6 +33,8 @@ const RELATED: Record<Variant, Variant[]> = {
 };
 
 const MAX_BULLETS_PER_ROLE = 5;
+const MAX_CORE_STACK = 8;
+const EXTRA_SKILLS_LABEL = 'Additional';
 
 function tagScore(tags: Variant[], v: Variant): number {
   if (tags.includes(v)) return 10;
@@ -134,10 +138,12 @@ export function tailor(job: JobInput, forceVariant?: Variant): TailoredCv {
   });
 
   const jobSkills = [...jobFreq.keys()];
-  return {
+  const matched = jobSkills.filter((s) => mine.has(s));
+  const cv: TailoredCv = {
     variant: v,
     headline: headlineFor(job, v, spec.title),
     summary: spec.summary,
+    coreStack: matched.length >= 2 ? [...matched].sort((a, b) => jobFreq.get(b)! - jobFreq.get(a)!).slice(0, MAX_CORE_STACK) : [],
     basics: p.basics,
     sections: spec.sections,
     aiPractice: spec.sections.includes('ai_practice') ? p.ai_practice : [],
@@ -147,8 +153,64 @@ export function tailor(job: JobInput, forceVariant?: Variant): TailoredCv {
     education: p.education,
     report: {
       jobSkills,
-      matched: jobSkills.filter((s) => mine.has(s)),
+      matched,
       missing: jobSkills.filter((s) => !mine.has(s)),
     },
+  };
+  // Keyword guarantee: a matched skill whose bullets didn't make the cut is listed under skills instead.
+  return addToSkills(cv, uncovered(cv, cvText(cv)));
+}
+
+/**
+ * The CV's content as plain text, for keyword checks before rendering. Leaves out the
+ * core-stack line, so every skill named there is also backed by a bullet or skills entry.
+ */
+function cvText(cv: TailoredCv): string {
+  return [
+    cv.headline,
+    cv.summary,
+    ...cv.aiPractice,
+    ...cv.experience.flatMap((x) => x.bullets.map((b) => b.text)),
+    ...cv.projects.flatMap((p) => [p.title, p.text]),
+    ...cv.skills.flatMap((l) => l.items),
+  ].join('\n');
+}
+
+/** Matched job skills that `text` (the CV's content) never mentions. */
+export function uncovered(cv: TailoredCv, text: string): string[] {
+  const present = detectSkills(text, false);
+  return cv.report.matched.filter((s) => !present.has(s));
+}
+
+/** How a skill is worded in your profile: the shortest skills-section item naming it, else the phrase a bullet uses. */
+function profileWording(p: Profile, skill: string): string {
+  const items = p.skills.flatMap((l) => l.items).filter((i) => detectSkills(i, false).has(skill));
+  if (items.length) return items.reduce((a, b) => (b.length < a.length ? b : a));
+  return skillMention(JSON.stringify(p), skill) ?? skill;
+}
+
+/** Returns a copy of the CV with these skills added to an "Additional" skills line. */
+export function addToSkills(cv: TailoredCv, skills: string[]): TailoredCv {
+  if (!skills.length) return cv;
+  const p = loadProfile();
+  const words = [...new Set(skills.map((s) => profileWording(p, s)))];
+  const lines = cv.skills.map((l) => ({ ...l, items: [...l.items] }));
+  const extra = lines.find((l) => l.label === EXTRA_SKILLS_LABEL);
+  if (extra) extra.items.push(...words.filter((w) => !extra.items.includes(w)));
+  else lines.push({ label: EXTRA_SKILLS_LABEL, items: words });
+  return { ...cv, skills: lines };
+}
+
+export interface KeywordCoverage { total: number; covered: string[]; notInProfile: string[]; notOnCv: string[] }
+
+/** ATS-style keyword check of the final CV text against the job's skills. */
+export function keywordCoverage(cv: TailoredCv, text: string): KeywordCoverage {
+  const present = detectSkills(text, false);
+  const { jobSkills, missing } = cv.report;
+  return {
+    total: jobSkills.length,
+    covered: jobSkills.filter((s) => present.has(s)),
+    notInProfile: missing.filter((s) => !present.has(s)),
+    notOnCv: jobSkills.filter((s) => !present.has(s) && !missing.includes(s)),
   };
 }

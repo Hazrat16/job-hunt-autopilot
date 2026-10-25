@@ -19,16 +19,21 @@ const SECTION_TITLES: Record<Section, (cv: TailoredCv) => string> = {
 };
 
 function linkLabel(url: string): string {
-  if (/github\.com/i.test(url)) return 'GitHub ↗';
-  if (/npmjs\.com/i.test(url)) return 'npm ↗';
-  return 'Link ↗';
+  if (/github\.com/i.test(url)) return 'GitHub';
+  if (/npmjs\.com/i.test(url)) return 'npm';
+  return 'Link';
+}
+
+/** Escapes text and keeps hyphenated words ("Full-Stack", "30–45%") from breaking across lines. */
+function t(text: string): string {
+  return e(text).replace(/\S+/g, (w) => (/\w[-–]\w/.test(w) ? `<span class="nb">${w}</span>` : w));
 }
 
 function section(cv: TailoredCv, s: Section): string {
   const head = `<h2>${e(SECTION_TITLES[s](cv))}</h2>`;
   switch (s) {
     case 'ai_practice':
-      return cv.aiPractice.length ? `<section>${head}<ul>${cv.aiPractice.map((t) => `<li>${e(t)}</li>`).join('')}</ul></section>` : '';
+      return cv.aiPractice.length ? `<section>${head}<ul>${cv.aiPractice.map((x) => `<li>${t(x)}</li>`).join('')}</ul></section>` : '';
     case 'experience':
       return `<section>${head}${cv.experience
         .filter((x) => x.bullets.length)
@@ -40,18 +45,18 @@ function section(cv: TailoredCv, s: Section): string {
             ? `<div class="meta">${e(x.location)}, ${e(x.dates)}</div><div class="meta">${e(x.subRoles)}</div>`
             : `<div class="meta">${e(x.role)}, ${e(x.dates)}, ${e(x.location)}</div>`
         }
-        <ul data-min="2">${x.bullets.map((b) => `<li data-score="${b.score}">${e(b.text)}</li>`).join('')}</ul>
+        <ul data-min="2">${x.bullets.map((b) => `<li data-score="${b.score}">${t(b.text)}</li>`).join('')}</ul>
       </div>`,
         )
         .join('')}</section>`;
     case 'skills':
-      return `<section>${head}<ul>${cv.skills.map((l) => `<li><b>${e(l.label)}:</b> ${e(l.items.join(', '))}</li>`).join('')}</ul></section>`;
+      return `<section>${head}<ul>${cv.skills.map((l) => `<li><b>${e(l.label)}:</b> ${t(l.items.join(', '))}</li>`).join('')}</ul></section>`;
     case 'projects':
       return cv.projects.length
         ? `<section>${head}<ul data-min="2">${cv.projects
             .map(
               (p) =>
-                `<li data-score="${p.score}"><b>${e(p.title)}</b>${p.url ? ` · <a href="${e(p.url)}">${linkLabel(p.url)}</a>` : ''}<b>:</b> ${e(p.text)}</li>`,
+                `<li data-score="${p.score}"><b>${t(p.title)}</b>${p.url ? ` · <a href="${e(p.url)}">${linkLabel(p.url)}</a>` : ''}<b>:</b> ${t(p.text)}</li>`,
             )
             .join('')}</ul></section>`
         : '';
@@ -105,6 +110,8 @@ li{margin:0 0 calc(1.5px * var(--sp))}
 .job{margin-bottom:calc(6px * var(--sp))}
 .company{font-weight:700;margin-top:calc(2px * var(--sp))}
 .meta,.degree{font-style:italic}
+.nb{white-space:nowrap}
+.core{margin-top:calc(2px * var(--sp))}
 </style></head>
 <body><div class="page">
 <header>
@@ -112,7 +119,7 @@ li{margin:0 0 calc(1.5px * var(--sp))}
   <div class="headline">${e(cv.headline)}</div>
   <div class="contact">${contact}</div>
 </header>
-<section><h2>Summary</h2><p>${e(cv.summary)}</p></section>
+<section><h2>Summary</h2><p>${t(cv.summary)}</p>${cv.coreStack.length ? `<p class="core"><b>Core stack for this role:</b> ${t(cv.coreStack.join(', '))}.</p>` : ''}</section>
 ${cv.sections.map((s) => section(cv, s)).join('\n')}
 </div>
 ${opts.fitLimitPx ? fitScript(opts.fitLimitPx) : ''}
