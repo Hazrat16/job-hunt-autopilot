@@ -135,4 +135,6 @@ src/
 - Commands: `/top`, `/job <id>` (tappable as `/job_86`), `/cv <id>`, `/fetch`, `/digest`, `/stats`.
 - `src/main.ts`: checks the schedule every minute against times saved in the database, so sleep or a restart catches up instead of skipping. CV renders run one at a time.
 
+**LinkedIn search (2026-10-25):** 12 queries, each run in two locations. "Worldwide" (24h, 2 pages) mostly returns remote-within-one-country jobs. "Bangladesh" (7 days, 1 page) returns remote jobs you're eligible for: 11 eligible matches on the first run, compared with about 1 before. Descriptions are only downloaded for jobs that aren't restricted and don't already have one. A 429 stops the run politely. View the results with `make jobs SOURCE=linkedin`.
+
 **Note:** the original PDFs are US Legal (8.5×14″). Generated CVs are A4 by default (`cv.paper` in `config.yaml`).

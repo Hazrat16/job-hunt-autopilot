@@ -3,16 +3,16 @@
 import * as cheerio from 'cheerio';
 import type { RawJob, Source } from './types.ts';
 import { eligibility } from '../eligibility.ts';
+import { hasDescription } from '../db.ts';
 import { getText, htmlToText, sleep, toIso } from '../util.ts';
 
 const SEARCH = 'https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search';
 const DETAIL = 'https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/';
-const WORLDWIDE_GEO_ID = '92000000';
 
 export interface LinkedInOptions {
   queries: string[];
-  hours_back: number;
-  pages_per_query: number;
+  /** Each query runs once per location; geo_id pins LinkedIn's place (else it resolves the name). */
+  locations: { name: string; geo_id?: string; hours_back: number; pages: number }[];
   max_detail_fetches: number;
 }
 
@@ -41,21 +41,27 @@ export function linkedin(opts: LinkedInOptions): Source {
     name: 'linkedin',
     async fetch(isRelevant) {
       const found = new Map<string, RawJob>();
-      for (const q of opts.queries) {
-        for (let page = 0; page < opts.pages_per_query; page++) {
+      let rateLimited = false;
+      search: for (const loc of opts.locations) for (const q of opts.queries) {
+        for (let page = 0; page < loc.pages; page++) {
           const params = new URLSearchParams({
             keywords: q,
-            location: 'Worldwide',
-            geoId: WORLDWIDE_GEO_ID,
+            location: loc.name,
+            ...(loc.geo_id ? { geoId: loc.geo_id } : {}),
             f_WT: '2', // remote
-            f_TPR: `r${opts.hours_back * 3600}`,
+            f_TPR: `r${loc.hours_back * 3600}`,
             start: String(page * 10),
           });
           let html: string;
           try {
             html = await getText(`${SEARCH}?${params}`);
           } catch (e) {
-            console.warn(`  linkedin "${q}": ${(e as Error).message}`);
+            console.warn(`  linkedin "${q}" (${loc.name}): ${(e as Error).message}`);
+            // Rate limited: stop searching for this run, but still use what was found.
+            if (/429/.test((e as Error).message)) {
+              rateLimited = true;
+              break search;
+            }
             break;
           }
           const $ = cheerio.load(html);
@@ -89,7 +95,8 @@ export function linkedin(opts: LinkedInOptions): Source {
       const jobs = [...found.values()];
       let fetched = 0;
       for (const job of jobs) {
-        if (eligibility(job).eligibility === 'restricted') continue;
+        if (eligibility(job).eligibility === 'restricted' || hasDescription('linkedin', job.sourceId)) continue;
+        if (rateLimited) break;
         if (fetched >= opts.max_detail_fetches) break;
         try {
           job.description = (await fetchLinkedInDetail(job.sourceId)).description;

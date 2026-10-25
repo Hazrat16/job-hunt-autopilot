@@ -18,7 +18,7 @@ export interface Config {
   experience_years: number;
   seniority: { title_penalty: string[]; title_bonus: string[] };
   eligible_locations: string[];
-  linkedin: { enabled: boolean; queries: string[]; hours_back: number; pages_per_query: number; max_detail_fetches: number };
+  linkedin: { enabled: boolean; queries: string[]; locations: { name: string; geo_id?: string; hours_back: number; pages: number }[]; max_detail_fetches: number };
   hn_whos_hiring: boolean;
   max_job_age_days: number;
   watchlist: { greenhouse: string[]; ashby: string[]; lever: string[] };

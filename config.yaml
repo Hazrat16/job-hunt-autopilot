@@ -24,10 +24,25 @@ eligible_locations: [anywhere, worldwide, world-wide, global, globally, any coun
 linkedin:
   enabled: true
   # Public (logged-out) job search, so your personal account is never touched.
-  queries: [full stack engineer, devops engineer, node.js developer, react developer, cloud engineer, platform engineer, backend engineer typescript]
-  hours_back: 24
-  pages_per_query: 2      # 10 results per page
-  max_detail_fetches: 40  # job descriptions fetched per run (polite rate)
+  queries:
+    - full stack engineer
+    - mern stack developer
+    - node.js developer
+    - backend engineer typescript
+    - react developer
+    - next.js developer
+    - devops engineer
+    - site reliability engineer
+    - platform engineer
+    - cloud engineer
+    - aws terraform
+    - software engineer typescript
+  # Each query runs in every location. "Worldwide" mostly returns remote-within-one-country jobs;
+  # "Bangladesh" returns remote jobs you're eligible for, so it looks back further.
+  locations:
+    - { name: Worldwide, geo_id: "92000000", hours_back: 24, pages: 2 }   # 10 results per page
+    - { name: Bangladesh, hours_back: 168, pages: 1 }
+  max_detail_fetches: 40  # job descriptions fetched per run (polite rate); stored jobs are skipped
 
 hn_whos_hiring: true
 

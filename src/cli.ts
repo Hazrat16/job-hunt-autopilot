@@ -12,7 +12,7 @@ const ELIG_ICON: Record<Eligibility, string> = { worldwide: '🌍', asia: '🌏'
 
 const USAGE = `Usage:
   npm run fetch [-- --source remoteok,himalayas]        collect, dedupe and score new jobs
-  npm run jobs [-- --min 50 --all --days 7 --limit 30]  best matches (restricted hidden unless --all)
+  npm run jobs [-- --min 50 --all --days 7 --source linkedin]  best matches (restricted hidden unless --all)
   npm run job -- <id>                                   one job in detail
   npm run status -- <id> ${STATUSES.join('|')} ["note"]
   npm run rescore                                       re-score stored jobs after editing config/profile
@@ -90,7 +90,7 @@ function printJobs(rows: import('./db.ts').JobRow[]) {
 async function cmdJobs(argv: string[]) {
   const { values } = parseArgs({
     args: argv,
-    options: { min: { type: 'string' }, all: { type: 'boolean' }, days: { type: 'string' }, limit: { type: 'string' }, status: { type: 'string' }, since: { type: 'string' } },
+    options: { min: { type: 'string' }, all: { type: 'boolean' }, days: { type: 'string' }, limit: { type: 'string' }, status: { type: 'string' }, since: { type: 'string' }, source: { type: 'string' } },
   });
   const { listJobs } = await import('./db.ts');
   const rows = listJobs({
@@ -99,6 +99,7 @@ async function cmdJobs(argv: string[]) {
     status: values.status ? (values.status.split(',') as (typeof STATUSES)[number][]) : values.all ? undefined : ['new', 'saved'],
     sinceDays: values.days ? Number(values.days) : undefined,
     firstSeenAfter: values.since,
+    source: values.source,
     limit: values.limit ? Number(values.limit) : 30,
   });
   console.log(`   id  scr  loc  variant   title @ company`);

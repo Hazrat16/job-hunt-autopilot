@@ -23,8 +23,8 @@ start: node_modules .env ## Bot + scheduler (no auto-restart)
 fetch: node_modules ## Collect, dedupe and score new jobs now
 	npm run fetch
 
-jobs: node_modules ## Best open matches
-	npm run jobs
+jobs: node_modules ## Best open matches (make jobs SOURCE=linkedin, ALL=1 to include restricted)
+	npm run jobs -- --limit 40 $(if $(SOURCE),--source $(SOURCE)) $(if $(ALL),--all)
 
 rescore: node_modules ## Re-score stored jobs after editing config.yaml or the profile
 	npm run rescore

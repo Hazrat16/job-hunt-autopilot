@@ -130,16 +130,11 @@ export function upsertJob(job: RawJob, score: (j: ScoreInput) => JobScore): Upse
   const known = db.prepare('SELECT job_id FROM job_sources WHERE source = ? AND source_id = ?').get(job.source, job.sourceId) as
     | { job_id: number }
     | undefined;
-  if (known) {
-    db.prepare('UPDATE jobs SET last_seen = ? WHERE id = ?').run(now, known.job_id);
-    return 'seen';
-  }
-
   const key = dedupeKey(job);
-  const existing = db.prepare('SELECT * FROM jobs WHERE dedupe_key = ?').get(key);
+  const existing = known ? db.prepare('SELECT * FROM jobs WHERE id = ?').get(known.job_id) : db.prepare('SELECT * FROM jobs WHERE dedupe_key = ?').get(key);
   if (existing) {
     const row = parse(existing);
-    db.prepare('INSERT OR IGNORE INTO job_sources (source, source_id, job_id) VALUES (?, ?, ?)').run(job.source, job.sourceId, row.id);
+    if (!known) db.prepare('INSERT INTO job_sources (source, source_id, job_id) VALUES (?, ?, ?)').run(job.source, job.sourceId, row.id);
     const seenOn = [...new Set([...row.seen_on, job.source])];
     const better = job.description.length > row.description.length + 200;
     if (better) {
@@ -158,7 +153,7 @@ export function upsertJob(job: RawJob, score: (j: ScoreInput) => JobScore): Upse
     } else {
       db.prepare('UPDATE jobs SET seen_on = ?, last_seen = ?, salary = COALESCE(salary, ?) WHERE id = ?').run(JSON.stringify(seenOn), now, job.salary ?? null, row.id);
     }
-    return better ? 'updated' : 'duplicate';
+    return better ? 'updated' : known ? 'seen' : 'duplicate';
   }
 
   const s = score(job);
@@ -182,12 +177,19 @@ export function jobIdBySource(source: string, sourceId: string): number | undefi
   return (db.prepare('SELECT job_id FROM job_sources WHERE source = ? AND source_id = ?').get(source, sourceId) as { job_id: number } | undefined)?.job_id;
 }
 
+/** Whether a source's job is stored with a description (LinkedIn search cards arrive without one). */
+export function hasDescription(source: string, sourceId: string): boolean {
+  return Boolean(
+    db.prepare("SELECT 1 FROM job_sources s JOIN jobs j ON j.id = s.job_id WHERE s.source = ? AND s.source_id = ? AND j.description != ''").get(source, sourceId),
+  );
+}
+
 export function getJob(id: number): JobRow | undefined {
   const row = db.prepare('SELECT * FROM jobs WHERE id = ?').get(id);
   return row && parse(row);
 }
 
-export interface JobFilter { minScore?: number; eligibility?: Eligibility[]; status?: Status[]; sinceDays?: number; firstSeenAfter?: string; limit?: number }
+export interface JobFilter { minScore?: number; eligibility?: Eligibility[]; status?: Status[]; sinceDays?: number; firstSeenAfter?: string; source?: string; limit?: number }
 
 /** Best matches first. */
 export function listJobs(f: JobFilter = {}): JobRow[] {
@@ -198,6 +200,8 @@ export function listJobs(f: JobFilter = {}): JobRow[] {
   if (f.status?.length) (where.push(`status IN (${f.status.map(() => '?').join(',')})`), args.push(...f.status));
   if (f.sinceDays) (where.push("COALESCE(posted_at, first_seen) >= ?"), args.push(new Date(Date.now() - f.sinceDays * 864e5).toISOString()));
   if (f.firstSeenAfter) (where.push('first_seen >= ?'), args.push(f.firstSeenAfter));
+  // Any board the job was seen on, not just the first one.
+  if (f.source) (where.push('EXISTS (SELECT 1 FROM job_sources s WHERE s.job_id = jobs.id AND s.source = ?)'), args.push(f.source));
   const sql = `SELECT * FROM jobs ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY score DESC, COALESCE(posted_at, first_seen) DESC LIMIT ?`;
   return db.prepare(sql).all(...args, f.limit ?? 50).map(parse);
 }
