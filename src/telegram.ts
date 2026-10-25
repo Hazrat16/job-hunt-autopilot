@@ -84,7 +84,7 @@ const emailTo = (j: JobRow) => detectEmailApply(j.description, j.apply_url)?.to;
 
 function jobButtons(j: JobRow): Button[][] {
   const row: Button[] = [{ text: '📄 CV', callback_data: `cv:${j.id}` }];
-  if (emailTo(j)) row.push({ text: '✉️ Email', callback_data: `em:${j.id}` });
+  row.push({ text: '✉️ Email', callback_data: `em:${j.id}` });
   if (j.status === 'new' || j.status === 'saved') {
     row.push({ text: '✅ Applied', callback_data: `st:${j.id}:applied` }, { text: '🙈 Skip', callback_data: `st:${j.id}:skipped` });
   }
@@ -210,12 +210,11 @@ async function onCallback(q: any) {
   }
   if (kind === 'em') {
     await call('answerCallbackQuery', { callback_query_id: q.id });
-    const d = draftEmail(j);
-    if (!d) return send(chatId, 'No email address to apply to in this post.');
+    const d = draftEmail(j, { always: true })!;
     // Body in a code block so it copies cleanly with one tap.
     return send(
       chatId,
-      `✉️ <b>Email application</b> for ${e(j.title)} @ ${e(j.company)}\n<b>To:</b> <code>${e(d.to)}</code>\n<b>Subject:</b> <code>${e(d.subject)}</code>` +
+      `✉️ <b>Email application</b> for ${e(j.title)} @ ${e(j.company)}\n<b>To:</b> ${d.to ? `<code>${e(d.to)}</code>` : "<i>the post doesn't give one: add the recruiter's address</i>"}\n<b>Subject:</b> <code>${e(d.subject)}</code>` +
         (d.asksFor ? `\n<b>They ask for:</b> ${e(d.asksFor)}` : '') +
         `\n\n<pre>${e(d.body)}</pre>\nAttach your CV (tap 📄 CV) before sending.`,
     );

@@ -155,7 +155,7 @@ input[type=range] { accent-color: var(--accent); width: 100%; }
 
 /* ---------- Filters ---------- */
 .filters { padding: 14px 14px 12px; display: flex; flex-direction: column; gap: 10px; }
-.segmented { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--surface-2); border-radius: var(--r); padding: 3px; gap: 2px; }
+.segmented { display: grid; grid-template-columns: repeat(5, 1fr); background: var(--surface-2); border-radius: var(--r); padding: 3px; gap: 2px; }
 .segmented button {
   height: 30px; border: 0; background: none; border-radius: 7px; cursor: pointer; color: var(--text-2);
   font-size: 13px; font-weight: 500; transition: background .15s, color .15s;

@@ -25,6 +25,7 @@ const PRESETS = {
   best: { status: 'new,saved', min: 50, elig: OPEN, empty: ['No strong matches right now', 'Try "Open", or find new jobs.'] },
   open: { status: 'new,saved', min: 0, elig: OPEN, empty: ['Nothing open', 'Try "Find new jobs" to check the boards.'] },
   saved: { status: 'saved', min: 0, elig: Object.keys(ELIG), empty: ['Nothing saved yet', 'Use Save on a job to keep it here.'] },
+  email: { status: '', min: 0, elig: Object.keys(ELIG), apply: 'email', empty: ['No email applications', 'None of your jobs ask you to apply by email right now.'] },
   all: { status: '', min: 0, elig: Object.keys(ELIG), empty: ['No jobs yet', 'Try "Find new jobs" to check the boards.'] },
 };
 
@@ -36,6 +37,7 @@ const state = {
   eligibility: new Set(PRESETS.best.elig),
   view: 'jobs',
   cvOpen: false,
+  emailDraft: null, // the open email draft for the selected job, including your edits
   lastVisit: null,
 };
 
@@ -158,6 +160,7 @@ function filterQuery() {
   if (PRESETS[state.preset].status) p.set('status', PRESETS[state.preset].status);
   if ($('#source').value) p.set('source', $('#source').value);
   if ($('#days').value) p.set('days', $('#days').value);
+  if (PRESETS[state.preset].apply) p.set('apply', PRESETS[state.preset].apply);
   p.set('limit', '300');
   return p.toString();
 }
@@ -218,8 +221,13 @@ function renderList() {
 
 async function selectJob(id, { scroll = false } = {}) {
   if (!id) return;
-  if (state.selected?.id !== id) state.cvOpen = false;
+  if (state.selected?.id !== id) {
+    state.cvOpen = false;
+    state.emailDraft = null;
+  }
   state.selected = await api(`/api/jobs/${id}`);
+  // Posts that ask for an email application open with the draft ready.
+  if (!state.emailDraft && state.selected.emailDraft) state.emailDraft = state.selected.emailDraft;
   history.replaceState(null, '', `#job=${id}`);
   renderList();
   renderDetail();
@@ -289,7 +297,7 @@ function renderDetail() {
       </select>
     </div>
 
-    ${j.emailDraft ? emailCard(j.emailDraft) : ''}
+    ${state.emailDraft?.detected ? `<div class="card email-card" id="emailCard">${emailCard(state.emailDraft)}</div>` : ''}
 
     <div class="card">
       ${cardHead('gauge', 'Why this score', `${j.matched.length} skills matched, ${j.missing.length} missing`)}
@@ -306,6 +314,8 @@ function renderDetail() {
     </div>
 
     <div class="card" id="cvCard">${cvCard()}</div>
+
+    ${state.emailDraft?.detected ? '' : `<div class="card${state.emailDraft ? ' email-card' : ''}" id="emailCard">${state.emailDraft ? emailCard(state.emailDraft) : emailStart()}</div>`}
 
     <div class="card">
       ${cardHead('note', 'Notes', 'Saved automatically when you click away')}
@@ -324,21 +334,30 @@ function renderDetail() {
   if (state.cvOpen) loadPreview();
 }
 
+function emailStart() {
+  return `${cardHead('mail', 'Application email', 'For a recruiter or hiring manager you found yourself. Written only from facts in your profile.')}
+    <div class="cv-empty">
+      <p>Write a short email to send with your CV. You can edit everything before sending.</p>
+      <button class="btn" id="writeEmail">${icon('mail')}Write email</button>
+    </div>`;
+}
+
 function emailCard(d) {
-  return `<div class="card email-card">
-    ${cardHead('mail', 'Apply by email', 'This post asks for applications by email. The draft only uses facts from your profile; edit it freely.')}
-    <blockquote class="evidence">“${esc(d.evidence)}”</blockquote>
+  return `
+    ${d.detected
+      ? cardHead('mail', 'Apply by email', 'This post asks for applications by email. The draft only uses facts from your profile; edit it freely.')
+      : cardHead('mail', 'Application email', 'Uses the CV version selected above. Add the address, then edit anything you like.')}
+    ${d.evidence && d.detected ? `<blockquote class="evidence">“${esc(d.evidence)}”</blockquote>` : ''}
     ${d.asksFor ? `<p class="asks">${icon('help')}<span><b>They also ask for:</b> ${esc(d.asksFor)}</span></p>` : ''}
-    <div class="mail-field"><label for="mailTo">To</label><input id="mailTo" value="${esc(d.to)}" readonly><button class="btn icon-btn ghost" data-copy="mailTo" title="Copy address">${icon('copy')}</button></div>
+    <div class="mail-field"><label for="mailTo">To</label><input id="mailTo" type="email" value="${esc(d.to)}" placeholder="recruiter@company.com"${d.detected ? ' readonly' : ''}><button class="btn icon-btn ghost" data-copy="mailTo" title="Copy address">${icon('copy')}</button></div>
     <div class="mail-field"><label for="mailSubject">Subject</label><input id="mailSubject" value="${esc(d.subject)}"><button class="btn icon-btn ghost" data-copy="mailSubject" title="Copy subject">${icon('copy')}</button></div>
     <textarea id="mailBody" class="mail-body" rows="14" aria-label="Email body">${esc(d.body)}</textarea>
     <div class="mail-actions">
       <button class="btn primary" id="gmailBtn">${icon('external')}Open in Gmail</button>
       <button class="btn" id="mailtoBtn">${icon('mail')}Open in mail app</button>
       <button class="btn ghost" data-copy="mailBody">${icon('copy')}Copy body</button>
-      <span class="muted">Remember to attach your tailored CV (below).</span>
-    </div>
-  </div>`;
+      <span class="muted">Remember to attach your tailored CV.</span>
+    </div>`;
 }
 
 function mailParts() {
@@ -528,6 +547,20 @@ $('#detail').addEventListener('click', async (e) => {
     return;
   }
   const id = e.target.closest('button')?.id;
+  if (id === 'writeEmail') {
+    const btn = e.target.closest('button');
+    btn.disabled = true;
+    try {
+      state.emailDraft = await api(`/api/jobs/${state.selected.id}/email${cvParams()}`);
+      $('#emailCard').innerHTML = emailCard(state.emailDraft);
+      $('#emailCard').classList.add('email-card');
+      $('#mailTo').focus();
+    } catch (err) {
+      toast(`Couldn't write the email: ${err.message}`, { error: true });
+      btn.disabled = false;
+    }
+    return;
+  }
   if (id === 'gmailBtn' || id === 'mailtoBtn') {
     const m = mailParts();
     const url =
@@ -557,6 +590,11 @@ $('#detail').addEventListener('change', async (e) => {
     renderDetail();
     loadJobs();
   }
+});
+// Keep email edits when the page redraws (e.g. after a status change).
+$('#detail').addEventListener('input', (e) => {
+  const field = { mailTo: 'to', mailSubject: 'subject', mailBody: 'body' }[e.target.id];
+  if (field && state.emailDraft) state.emailDraft[field] = e.target.value;
 });
 // Notes save when you leave the box.
 $('#detail').addEventListener('focusout', async (e) => {

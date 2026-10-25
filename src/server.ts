@@ -55,6 +55,9 @@ export function createApp() {
 
   app.get('/api/jobs', (req, res) => {
     const q = req.query;
+    // "Apply by email" is read from the description, so that filter runs here, after the query.
+    const emailOnly = q.apply === 'email';
+    const limit = Math.min(Number(q.limit) || 200, 1000);
     const rows = listJobs({
       q: typeof q.q === 'string' && q.q.trim() ? q.q.trim() : undefined,
       minScore: q.min ? Number(q.min) : undefined,
@@ -62,9 +65,10 @@ export function createApp() {
       status: list(q.status) as Status[] | undefined,
       source: typeof q.source === 'string' && q.source ? q.source : undefined,
       sinceDays: q.days ? Number(q.days) : undefined,
-      limit: Math.min(Number(q.limit) || 200, 1000),
+      limit: emailOnly ? 5000 : limit,
     });
-    res.json(rows.map(summary));
+    const jobs = rows.map(summary);
+    res.json(emailOnly ? jobs.filter((j) => j.apply_email).slice(0, limit) : jobs);
   });
 
   app.get('/api/jobs/:id', (req, res) => {
@@ -94,6 +98,12 @@ export function createApp() {
     } catch (err) {
       next(err);
     }
+  });
+
+  // Application email for any job: the post's address when it gives one, else yours to fill in.
+  app.get('/api/jobs/:id/email', (req, res) => {
+    const j = jobOr404(req, res);
+    if (j) res.json(draftEmail(j, { always: true, variant: variantParam(req) }));
   });
 
   // Instant preview: the page fits itself to one page in your browser (no Chrome needed).

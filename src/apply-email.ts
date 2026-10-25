@@ -1,6 +1,6 @@
 // "Send your CV to jobs@acme.com": spots job posts that want applications by email, and drafts
 // that email from your profile. Like the CV, the draft only uses facts from data/profile.yaml.
-import { config } from './config.ts';
+import { config, type Variant } from './config.ts';
 import { tailor, type JobInput } from './cv/tailor.ts';
 import { loadProfile } from './profile.ts';
 
@@ -17,7 +17,19 @@ export interface EmailApply {
   asksFor?: string;
 }
 
-export interface EmailDraft extends EmailApply { subject: string; body: string }
+export interface EmailDraft extends EmailApply {
+  subject: string;
+  body: string;
+  /** False when the post doesn't ask for email and the address is yours to fill in. */
+  detected: boolean;
+}
+
+export interface DraftOptions {
+  /** Draft even when the post doesn't ask for an email application (e.g. a recruiter you found yourself). */
+  always?: boolean;
+  /** CV variant whose headline and bullets the email uses (default: the job's suggested one). */
+  variant?: Variant;
+}
 
 const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
 
@@ -81,12 +93,13 @@ function listJoin(items: string[]): string {
   return items.length <= 2 ? items.join(' and ') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
 }
 
-/** Drafts the application email for a job that asks for one. */
-export function draftEmail(job: JobInput & { apply_url?: string | null; variant?: string }): EmailDraft | undefined {
-  const found = detectEmailApply(job.description, job.apply_url);
+/** Drafts the application email for a job (by default only when the post asks for one). */
+export function draftEmail(job: JobInput & { apply_url?: string | null }, opts: DraftOptions = {}): EmailDraft | undefined {
+  const detected = detectEmailApply(job.description, job.apply_url);
+  const found: EmailApply | undefined = detected ?? (opts.always ? { to: '', evidence: '' } : undefined);
   if (!found) return undefined;
   const p = loadProfile();
-  const cv = tailor(job);
+  const cv = tailor(job, opts.variant);
   const b = p.basics;
   const years = `${Math.floor(config.experience_years)}+ years`;
   const company = job.company && !/^unknown/i.test(job.company) ? job.company : 'your team';
@@ -121,5 +134,5 @@ export function draftEmail(job: JobInput & { apply_url?: string | null; variant?
   const subject =
     found.subjectHint?.replace(/\byour (full )?name\b/i, b.name).replace(/\byour (city|location)\b/i, b.location.split(',')[0]) ??
     `Application: ${job.title}${found.reference ? ` (Ref ${found.reference})` : ''} – ${b.name}`;
-  return { ...found, subject, body: paragraphs.join('\n\n') };
+  return { ...found, subject, body: paragraphs.join('\n\n'), detected: Boolean(detected) };
 }
