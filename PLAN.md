@@ -135,6 +135,15 @@ src/
 - Commands: `/top`, `/job <id>` (tappable as `/job_86`), `/cv <id>`, `/fetch`, `/digest`, `/stats`.
 - `src/main.ts`: checks the schedule every minute against times saved in the database, so sleep or a restart catches up instead of skipping. CV renders run one at a time.
 
+**Phase 4 is done.** The dashboard is at http://localhost:3000 whenever `make dev` is running. It listens on 127.0.0.1 only.
+- `src/server.ts`: an Express JSON API (`/api/jobs`, `/api/jobs/:id`, PATCH status/notes, POST add job, `/cv/preview`, `/cv.pdf`, `/api/fetch`, `/api/meta`).
+- `src/web/`: plain HTML/CSS/JS with no build step. Light and dark themes, works at phone width.
+- Jobs view: search plus filters for score, eligibility, status, source and posting age; ↑/↓ or j/k to move through the list; `#job=<id>` deep links.
+- Detail view: score and eligibility reason, skills matched/missing, status buttons with a dated history (`job_events`), notes that save when you leave the box, the job description, and a CV variant switcher.
+- CV: an instant preview (the fit-to-one-page script runs in your browser) and a Chrome-rendered PDF download with the ATS coverage line. Renders are shared one at a time with the bot.
+- Pipeline view: Saved / Applied / Interview / Offer / Rejected / Skipped columns. Drag cards to change status, click a card to open it.
+- Add job: paste text or a link, the same as the bot's paste-to-CV.
+
 **LinkedIn search (2026-10-25):** 12 queries, each run in two locations. "Worldwide" (24h, 2 pages) mostly returns remote-within-one-country jobs. "Bangladesh" (7 days, 1 page) returns remote jobs you're eligible for: 11 eligible matches on the first run, compared with about 1 before. Descriptions are only downloaded for jobs that aren't restricted and don't already have one. A 429 stops the run politely. View the results with `make jobs SOURCE=linkedin`.
 
 **Note:** the original PDFs are US Legal (8.5×14″). Generated CVs are A4 by default (`cv.paper` in `config.yaml`).

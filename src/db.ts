@@ -84,6 +84,7 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS jobs_score ON jobs(score DESC);
   CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+  CREATE TABLE IF NOT EXISTS job_events (job_id INTEGER NOT NULL REFERENCES jobs(id), status TEXT NOT NULL, at TEXT NOT NULL);
 `);
 
 // Columns added after the first release.
@@ -189,7 +190,7 @@ export function getJob(id: number): JobRow | undefined {
   return row && parse(row);
 }
 
-export interface JobFilter { minScore?: number; eligibility?: Eligibility[]; status?: Status[]; sinceDays?: number; firstSeenAfter?: string; source?: string; limit?: number }
+export interface JobFilter { minScore?: number; eligibility?: Eligibility[]; status?: Status[]; sinceDays?: number; firstSeenAfter?: string; source?: string; q?: string; limit?: number }
 
 /** Best matches first. */
 export function listJobs(f: JobFilter = {}): JobRow[] {
@@ -202,6 +203,11 @@ export function listJobs(f: JobFilter = {}): JobRow[] {
   if (f.firstSeenAfter) (where.push('first_seen >= ?'), args.push(f.firstSeenAfter));
   // Any board the job was seen on, not just the first one.
   if (f.source) (where.push('EXISTS (SELECT 1 FROM job_sources s WHERE s.job_id = jobs.id AND s.source = ?)'), args.push(f.source));
+  if (f.q) {
+    where.push('(title LIKE ? OR company LIKE ? OR description LIKE ?)');
+    const like = `%${f.q}%`;
+    args.push(like, like, like);
+  }
   const sql = `SELECT * FROM jobs ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY score DESC, COALESCE(posted_at, first_seen) DESC LIMIT ?`;
   return db.prepare(sql).all(...args, f.limit ?? 50).map(parse);
 }
@@ -262,5 +268,21 @@ export function stats(): { total: number; week: number; good: number; byStatus: 
 }
 
 export function setStatus(id: number, status: Status, notes?: string): void {
-  db.prepare('UPDATE jobs SET status = ?, status_at = ?, notes = COALESCE(?, notes) WHERE id = ?').run(status, new Date().toISOString(), notes ?? null, id);
+  const now = new Date().toISOString();
+  db.prepare('UPDATE jobs SET status = ?, status_at = ?, notes = COALESCE(?, notes) WHERE id = ?').run(status, now, notes ?? null, id);
+  db.prepare('INSERT INTO job_events (job_id, status, at) VALUES (?, ?, ?)').run(id, status, now);
+}
+
+export function setNotes(id: number, notes: string): void {
+  db.prepare('UPDATE jobs SET notes = ? WHERE id = ?').run(notes, id);
+}
+
+/** Status changes for a job, oldest first. */
+export function jobEvents(id: number): { status: Status; at: string }[] {
+  return db.prepare('SELECT status, at FROM job_events WHERE job_id = ? ORDER BY at').all(id) as { status: Status; at: string }[];
+}
+
+/** Source names with job counts, for filters. */
+export function sourceCounts(): { source: string; n: number }[] {
+  return db.prepare('SELECT source, COUNT(DISTINCT job_id) n FROM job_sources GROUP BY source ORDER BY n DESC').all() as { source: string; n: number }[];
 }

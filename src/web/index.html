@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Job Hunt Autopilot</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">🎯 Job Hunt Autopilot</div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-view="jobs" role="tab">Jobs</button>
+      <button class="tab" data-view="pipeline" role="tab">Pipeline</button>
+    </nav>
+    <div class="stats" id="stats"></div>
+    <div class="actions">
+      <button class="btn" id="fetchBtn" title="Check all job sources now (1–3 minutes)">⟳ Fetch now</button>
+      <button class="btn primary" id="addBtn">+ Add job</button>
+    </div>
+  </header>
+
+  <main id="jobsView" class="jobs-view">
+    <section class="list-pane">
+      <div class="filters">
+        <input id="q" type="search" placeholder="Search title, company, description…" autocomplete="off">
+        <div class="filter-row">
+          <label class="score-filter">Score ≥ <output id="minOut">0</output>
+            <input id="min" type="range" min="0" max="100" step="5" value="0">
+          </label>
+          <div class="chips" id="eligChips"></div>
+        </div>
+        <div class="filter-row">
+          <select id="status" title="Status">
+            <option value="new,saved" title="New and saved">Open</option>
+            <option value="">All statuses</option>
+          </select>
+          <select id="source" title="Source"><option value="">All sources</option></select>
+          <select id="days" title="Posted within">
+            <option value="">Any time</option>
+            <option value="1">Last 24h</option>
+            <option value="3">Last 3 days</option>
+            <option value="7">Last 7 days</option>
+            <option value="30">Last 30 days</option>
+          </select>
+        </div>
+      </div>
+      <div class="list-count" id="listCount"></div>
+      <ul class="job-list" id="jobList" tabindex="0" aria-label="Jobs"></ul>
+    </section>
+
+    <section class="detail-pane" id="detail">
+      <div class="empty">Select a job to see details, its tailored CV and your notes.</div>
+    </section>
+  </main>
+
+  <main id="pipelineView" class="pipeline-view" hidden>
+    <div class="board" id="board"></div>
+  </main>
+
+  <dialog id="addDialog">
+    <form method="dialog" id="addForm">
+      <h2>Add a job</h2>
+      <p class="hint">Paste a job description or a LinkedIn "we're hiring" post, or give a job link. It's scored and stored like any other job.</p>
+      <textarea name="text" rows="10" placeholder="Paste the job text here…"></textarea>
+      <input name="url" type="url" placeholder="…or a job link (https://…)">
+      <div class="two">
+        <input name="title" placeholder="Title (optional)">
+        <input name="company" placeholder="Company (optional)">
+      </div>
+      <p class="error" id="addError" hidden></p>
+      <div class="dialog-actions">
+        <button class="btn" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn primary" id="addSubmit" value="add">Add and score</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

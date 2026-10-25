@@ -14,10 +14,10 @@ node_modules: package.json package-lock.json
 help: ## List the commands
 	@grep -E '^[a-z]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-10s %s\n", $$1, $$2}'
 
-dev: node_modules .env ## Bot + scheduler, restarting when src/, config.yaml or the profile change
+dev: node_modules .env ## Dashboard (localhost:3000) + bot + scheduler, restarting on changes
 	npm run dev
 
-start: node_modules .env ## Bot + scheduler (no auto-restart)
+start: node_modules .env ## Dashboard + bot + scheduler (no auto-restart)
 	npm start
 
 fetch: node_modules ## Collect, dedupe and score new jobs now

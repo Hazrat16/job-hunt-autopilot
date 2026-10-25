@@ -3,16 +3,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { config, env } from './config.ts';
-import { cvFolder, renderCv } from './cv/render.ts';
+import { cvFolder, renderCvQueued } from './cv/render.ts';
 import { formatCoverage, tailor } from './cv/tailor.ts';
 import {
-  digestJobs, followUps, getJob, getKv, jobIdBySource, listJobs, markNotified, markReminded, setKv, setStatus, stats, upsertJob,
-  type JobRow, type Status,
+  digestJobs, followUps, getJob, getKv, listJobs, markNotified, markReminded, setKv, setStatus, stats, type JobRow, type Status,
 } from './db.ts';
 import type { Eligibility } from './eligibility.ts';
-import { scoreJob } from './match.ts';
-import { fetchAllShared, type SourceReport } from './pipeline.ts';
-import { jobFromInput } from './sources/manual.ts';
+import { addManualJob, fetchAllShared, type SourceReport } from './pipeline.ts';
 import { escapeHtml as e, sleep } from './util.ts';
 
 const ELIG_ICON: Record<Eligibility, string> = { worldwide: '🌍', asia: '🌏', unknown: '❓', restricted: '🚫' };
@@ -98,18 +95,10 @@ function fetchSummary(reports: SourceReport[]): string {
 
 // ---------- CV ----------
 
-// One Chrome at a time: renders share a profile directory.
-let cvQueue: Promise<unknown> = Promise.resolve();
-
 async function sendCv(chatId: number, j: JobRow) {
   void call('sendChatAction', { chat_id: chatId, action: 'upload_document' }).catch(() => {});
-  const run = cvQueue.then(async () => {
-    const cv = tailor(j);
-    const res = await renderCv(cv, cvFolder(j));
-    return { cv, res };
-  });
-  cvQueue = run.catch(() => {});
-  const { cv, res } = await run;
+  const cv = tailor(j);
+  const res = await renderCvQueued(cv, cvFolder(j));
   await sendDocument(
     chatId,
     res.pdf,
@@ -201,10 +190,7 @@ async function onCommand(chatId: number, cmd: string, arg: string) {
 async function onJobText(chatId: number, text: string) {
   if (text.length < 40 && !/https?:\/\//.test(text)) return send(chatId, 'Send a full job description or a job link (or /help).');
   await send(chatId, 'Reading the job…');
-  const job = await jobFromInput({ text });
-  if (job.description.length < 80) return send(chatId, "I couldn't read a job description from that. Try pasting the text instead.");
-  upsertJob(job, scoreJob);
-  const j = getJob(jobIdBySource(job.source, job.sourceId)!)!;
+  const j = await addManualJob({ text });
   await send(chatId, jobCard(j), jobButtons(j));
   await sendCv(chatId, j);
 }

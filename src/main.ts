@@ -1,9 +1,10 @@
-// `npm start`: the Telegram bot plus the scheduler (fetch every few hours, digest once a day).
+// `npm start`: the local dashboard, the Telegram bot and the scheduler (fetch every few hours, digest once a day).
 // The schedule is checked every minute against times stored in the database, so a laptop
 // that was asleep or a restarted process catches up instead of skipping a run.
 import { config } from './config.ts';
 import { getKv, setKv } from './db.ts';
 import { fetchAllShared } from './pipeline.ts';
+import { startServer } from './server.ts';
 import { sendDigest, startBot } from './telegram.ts';
 
 const log = (msg: string) => console.log(`${new Date().toLocaleString('sv')} ${msg}`);
@@ -53,6 +54,7 @@ async function tick() {
 }
 
 log(`started: fetch every ${config.schedule.fetch_every_hours}h, digest at ${config.schedule.digest_at}`);
+startServer().catch((err) => log(`dashboard failed to start: ${(err as Error).message}`));
 // Startup can hit a network blip; keep retrying rather than run without the bot.
 (async function runBot() {
   for (;;) {

@@ -1,10 +1,11 @@
 // One fetch run: every source in parallel, then dedupe, score and store.
 import { config } from './config.ts';
-import { setKv, upsertJob, type UpsertResult } from './db.ts';
+import { getJob, jobIdBySource, setKv, upsertJob, type JobRow, type UpsertResult } from './db.ts';
 import { isRelevantTitle, scoreJob } from './match.ts';
 import { arbeitnow, himalayas, hnWhosHiring, jobicy, remoteok, remotive, weworkremotely } from './sources/boards.ts';
 import { ashby, greenhouse, lever } from './sources/companies.ts';
 import { linkedin } from './sources/linkedin.ts';
+import { jobFromInput } from './sources/manual.ts';
 import type { RawJob, Source } from './sources/types.ts';
 
 export function allSources(): Source[] {
@@ -24,6 +25,14 @@ export interface SourceReport { source: string; fetched: number; tooOld: number;
 function isTooOld(job: RawJob): boolean {
   if (!job.postedAt) return false;
   return Date.now() - new Date(job.postedAt).getTime() > config.max_job_age_days * 864e5;
+}
+
+/** A job you found yourself (pasted text or a link): scored and stored like any other. */
+export async function addManualJob(input: { text?: string; url?: string; title?: string; company?: string }): Promise<JobRow> {
+  const job = await jobFromInput(input);
+  if (job.description.length < 80) throw new Error("Couldn't read a job description from that. Paste the job text instead.");
+  upsertJob(job, scoreJob);
+  return getJob(jobIdBySource(job.source, job.sourceId)!)!;
 }
 
 let inFlight: Promise<SourceReport[]> | undefined;

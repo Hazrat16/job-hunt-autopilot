@@ -58,6 +58,21 @@ export function cvFileName(cv: TailoredCv, name: string): string {
 const BOTTOM_MARGIN_MM = 9;
 const mmToPx = (mm: number) => (mm * 96) / 25.4;
 
+/** Where the last line may end (CSS px) for the in-browser fit, e.g. the dashboard preview. */
+export function fitLimitPx(paper: Paper = config.cv.paper): number {
+  return mmToPx(PAPER[paper].heightMm - BOTTOM_MARGIN_MM);
+}
+
+// One Chrome at a time: renders share a profile directory.
+let queue: Promise<unknown> = Promise.resolve();
+
+/** renderCv, but waits for any render already running (bot and dashboard share Chrome). */
+export function renderCvQueued(...args: Parameters<typeof renderCv>): Promise<RenderResult> {
+  const run = queue.then(() => renderCv(...args));
+  queue = run.catch(() => {});
+  return run;
+}
+
 /**
  * Renders the CV, then checks the final text: if fitting dropped the only bullet that named a
  * matched skill, that skill is added to the skills section and the CV is rendered again.
@@ -87,7 +102,7 @@ async function renderOnce(cv: TailoredCv, outDir: string, paper: Paper): Promise
   const html = `${base}.html`;
   const pdf = `${base}.pdf`;
   const draft = `${base}.draft.html`;
-  const target = mmToPx(PAPER[paper].heightMm - BOTTOM_MARGIN_MM);
+  const target = fitLimitPx(paper);
 
   const attempt = async (limitPx: number) => {
     fs.writeFileSync(draft, renderHtml(cv, { paper, fontBase, fitLimitPx: limitPx }));
