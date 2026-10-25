@@ -127,4 +127,12 @@ src/
 - CLI: `npm run fetch`, `npm run jobs`, `npm run job -- <id>`, `npm run status -- <id> applied`, `npm run rescore`, `npm run cv -- <id>`.
 - Jobs older than `max_job_age_days` (30) are ignored.
 
+**Phase 3 is done and running.**
+- Run it with `make dev`: the bot plus the scheduler, restarting when `src/`, `config.yaml` or the profile change. `make start` runs it without restarts, and `make help` lists the other commands.
+- `src/telegram.ts`: Bot API over fetch with long polling, so no public URL is needed. The first chat to send `/start` is saved as the owner (or set `TELEGRAM_CHAT_ID`), and every other chat is ignored.
+- Daily digest: unsent jobs with `min_score` or higher that aren't restricted, one card each with 📄 CV / ✅ Applied / 🙈 Skip buttons. Follow-up reminders `follow_up_after_days` after you mark a job Applied.
+- Paste-to-CV: any text or job link sent to the bot is scored, stored as a manual job, and answered with a tailored CV.
+- Commands: `/top`, `/job <id>` (tappable as `/job_86`), `/cv <id>`, `/fetch`, `/digest`, `/stats`.
+- `src/main.ts`: checks the schedule every minute against times saved in the database, so sleep or a restart catches up instead of skipping. CV renders run one at a time.
+
 **Note:** the original PDFs are US Legal (8.5×14″). Generated CVs are A4 by default (`cv.paper` in `config.yaml`).

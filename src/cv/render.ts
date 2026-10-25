@@ -45,6 +45,11 @@ async function printedBottomPx(pdf: string): Promise<number | undefined> {
 
 export interface RenderResult { pdf: string; html: string; pages?: number; fontSize: string; dropped: string[]; coverage: KeywordCoverage }
 
+/** Output folder for a job's CV, e.g. output/cvs/86-Vercel-Software-Engineer-Backend. */
+export function cvFolder(job: { id?: number; company: string; title: string }): string {
+  return path.join(OUTPUT_DIR, 'cvs', `${job.id ? `${job.id}-` : ''}${job.company}-${job.title}`.replace(/[^\w]+/g, '-').slice(0, 80));
+}
+
 export function cvFileName(cv: TailoredCv, name: string): string {
   const who = name.replace(/^[A-Z]\.?[A-Z]?\.?\s*/, '').replace(/\W+/g, '_');
   return `CV_${who}_${cv.headline.replace(/[^\w]+/g, '_').replace(/_+$/, '')}`;

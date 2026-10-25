@@ -1,6 +1,6 @@
 // One fetch run: every source in parallel, then dedupe, score and store.
 import { config } from './config.ts';
-import { upsertJob, type UpsertResult } from './db.ts';
+import { setKv, upsertJob, type UpsertResult } from './db.ts';
 import { isRelevantTitle, scoreJob } from './match.ts';
 import { arbeitnow, himalayas, hnWhosHiring, jobicy, remoteok, remotive, weworkremotely } from './sources/boards.ts';
 import { ashby, greenhouse, lever } from './sources/companies.ts';
@@ -24,6 +24,16 @@ export interface SourceReport { source: string; fetched: number; tooOld: number;
 function isTooOld(job: RawJob): boolean {
   if (!job.postedAt) return false;
   return Date.now() - new Date(job.postedAt).getTime() > config.max_job_age_days * 864e5;
+}
+
+let inFlight: Promise<SourceReport[]> | undefined;
+
+/** A full fetch of every source; joins the running one instead of starting a second. */
+export function fetchAllShared(): Promise<SourceReport[]> {
+  inFlight ??= fetchJobs()
+    .then((r) => (setKv('last_fetch', new Date().toISOString()), r))
+    .finally(() => (inFlight = undefined));
+  return inFlight;
 }
 
 /** @param only source names to run (default: all). */

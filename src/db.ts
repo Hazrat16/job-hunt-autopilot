@@ -36,6 +36,10 @@ export interface JobRow {
   status: Status;
   status_at: string | null;
   notes: string | null;
+  /** When the job was sent in a Telegram digest. */
+  notified_at: string | null;
+  /** When the "applied N days ago" follow-up was sent. */
+  reminded_at: string | null;
 }
 
 const JSON_COLS = ['seen_on', 'location_hints', 'tags', 'matched', 'missing'] as const;
@@ -79,7 +83,21 @@ db.exec(`
     PRIMARY KEY (source, source_id)
   );
   CREATE INDEX IF NOT EXISTS jobs_score ON jobs(score DESC);
+  CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 `);
+
+// Columns added after the first release.
+const cols = new Set(db.prepare('PRAGMA table_info(jobs)').all().map((c) => c.name as string));
+for (const c of ['notified_at', 'reminded_at']) if (!cols.has(c)) db.exec(`ALTER TABLE jobs ADD COLUMN ${c} TEXT`);
+
+/** Small persistent settings/state (Telegram chat id, last fetch time, ...). */
+export function getKv(key: string): string | undefined {
+  return (db.prepare('SELECT value FROM kv WHERE key = ?').get(key) as { value: string } | undefined)?.value;
+}
+
+export function setKv(key: string, value: string): void {
+  db.prepare('INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, value);
+}
 
 function parse(row: Record<string, unknown>): JobRow {
   const r: any = { ...row };
@@ -160,6 +178,10 @@ export function upsertJob(job: RawJob, score: (j: ScoreInput) => JobScore): Upse
   return 'new';
 }
 
+export function jobIdBySource(source: string, sourceId: string): number | undefined {
+  return (db.prepare('SELECT job_id FROM job_sources WHERE source = ? AND source_id = ?').get(source, sourceId) as { job_id: number } | undefined)?.job_id;
+}
+
 export function getJob(id: number): JobRow | undefined {
   const row = db.prepare('SELECT * FROM jobs WHERE id = ?').get(id);
   return row && parse(row);
@@ -191,6 +213,48 @@ export function rescoreAll(score: (j: ScoreInput) => JobScore): number {
   }
   db.exec('COMMIT');
   return rows.length;
+}
+
+/** Good matches not sent yet, best first. */
+export function digestJobs(minScore: number, eligibility: Eligibility[], limit: number): JobRow[] {
+  return db
+    .prepare(
+      `SELECT * FROM jobs WHERE status = 'new' AND notified_at IS NULL AND score >= ?
+         AND eligibility IN (${eligibility.map(() => '?').join(',')})
+       ORDER BY score DESC, COALESCE(posted_at, first_seen) DESC LIMIT ?`,
+    )
+    .all(minScore, ...eligibility, limit)
+    .map(parse);
+}
+
+export function markNotified(ids: number[]): void {
+  const stmt = db.prepare('UPDATE jobs SET notified_at = ? WHERE id = ?');
+  const now = new Date().toISOString();
+  for (const id of ids) stmt.run(now, id);
+}
+
+/** Jobs you applied to at least `days` ago that haven't moved on and haven't been reminded about. */
+export function followUps(days: number): JobRow[] {
+  const before = new Date(Date.now() - days * 864e5).toISOString();
+  return db.prepare("SELECT * FROM jobs WHERE status = 'applied' AND status_at <= ? AND reminded_at IS NULL").all(before).map(parse);
+}
+
+export function markReminded(id: number): void {
+  db.prepare('UPDATE jobs SET reminded_at = ? WHERE id = ?').run(new Date().toISOString(), id);
+}
+
+export function stats(): { total: number; week: number; good: number; byStatus: Record<string, number> } {
+  const week = new Date(Date.now() - 7 * 864e5).toISOString();
+  const one = (sql: string, ...a: string[]) => Number((db.prepare(sql).get(...a) as { n: number }).n);
+  const byStatus = Object.fromEntries(
+    (db.prepare('SELECT status, COUNT(*) n FROM jobs GROUP BY status').all() as { status: string; n: number }[]).map((r) => [r.status, r.n]),
+  );
+  return {
+    total: one('SELECT COUNT(*) n FROM jobs'),
+    week: one('SELECT COUNT(*) n FROM jobs WHERE first_seen >= ?', week),
+    good: one("SELECT COUNT(*) n FROM jobs WHERE score >= 50 AND eligibility != 'restricted' AND first_seen >= ?", week),
+    byStatus,
+  };
 }
 
 export function setStatus(id: number, status: Status, notes?: string): void {

@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "description": "Remote job finder + per-job tailored CV generator",
   "scripts": {
+    "start": "node --no-warnings=ExperimentalWarning src/main.ts",
+    "dev": "node --no-warnings=ExperimentalWarning --watch-path=src --watch-path=data/profile.yaml --watch-path=config.yaml src/main.ts",
     "cv": "node --no-warnings=ExperimentalWarning src/cli.ts cv",
     "fetch": "node --no-warnings=ExperimentalWarning src/cli.ts fetch",
     "jobs": "node --no-warnings=ExperimentalWarning src/cli.ts jobs",

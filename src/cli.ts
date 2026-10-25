@@ -1,9 +1,8 @@
 import fs from 'node:fs';
-import path from 'node:path';
 import { parseArgs } from 'node:util';
-import { OUTPUT_DIR, VARIANTS, type Variant } from './config.ts';
-import { tailor } from './cv/tailor.ts';
-import { renderCv } from './cv/render.ts';
+import { VARIANTS, type Variant } from './config.ts';
+import { formatCoverage, tailor } from './cv/tailor.ts';
+import { cvFolder, renderCv } from './cv/render.ts';
 import type { Paper } from './cv/template.ts';
 import { jobFromInput } from './sources/manual.ts';
 import type { Eligibility } from './eligibility.ts';
@@ -51,17 +50,13 @@ async function cmdCv(argv: string[]) {
     job = await jobFromInput({ text, url: values.url, title: values.title, company: values.company });
   }
   const cv = tailor(job, values.variant as Variant | undefined);
-  const folder = path.join(OUTPUT_DIR, 'cvs', `${id ? `${id}-` : ''}${job.company}-${job.title}`.replace(/[^\w]+/g, '-').slice(0, 80));
-  const res = await renderCv(cv, folder, values.paper as Paper | undefined);
+  const res = await renderCv(cv, cvFolder({ ...job, id: id || undefined }), values.paper as Paper | undefined);
 
   const r = cv.report;
   console.log(`\nJob:       ${job.title} @ ${job.company}`);
   console.log(`Variant:   ${cv.variant}   Headline: ${cv.headline}`);
   console.log(`Skills:    matched ${r.matched.length}/${r.jobSkills.length}: ${r.matched.join(', ') || '-'}`);
-  const c = res.coverage;
-  const pct = c.total ? Math.round((c.covered.length / c.total) * 100) : 100;
-  const gaps = [...c.notInProfile.map((s) => `${s} (not in your profile)`), ...c.notOnCv.map((s) => `${s} (in your profile, not on this CV)`)];
-  console.log(`ATS:       covers ${c.covered.length} of ${c.total} job keywords (${pct}%).${gaps.length ? ` Missing: ${gaps.join(', ')}.` : ''}`);
+  console.log(`ATS:       ${formatCoverage(res.coverage)}`);
   console.log(`Fit:       ${res.pages ?? '?'} page(s), font ${res.fontSize}${res.dropped.length ? `, dropped ${res.dropped.length}:` : ''}`);
   for (const d of res.dropped) console.log(`             - ${d}…`);
   console.log(`PDF:       ${res.pdf}\n`);

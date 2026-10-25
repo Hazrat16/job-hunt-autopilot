@@ -203,6 +203,13 @@ export function addToSkills(cv: TailoredCv, skills: string[]): TailoredCv {
 
 export interface KeywordCoverage { total: number; covered: string[]; notInProfile: string[]; notOnCv: string[] }
 
+/** "covers 7 of 8 job keywords (88%). Missing: Microservices (not in your profile)." */
+export function formatCoverage(c: KeywordCoverage): string {
+  const pct = c.total ? Math.round((c.covered.length / c.total) * 100) : 100;
+  const gaps = [...c.notInProfile.map((s) => `${s} (not in your profile)`), ...c.notOnCv.map((s) => `${s} (in your profile, not on this CV)`)];
+  return `covers ${c.covered.length} of ${c.total} job keywords (${pct}%).${gaps.length ? ` Missing: ${gaps.join(', ')}.` : ''}`;
+}
+
 /** ATS-style keyword check of the final CV text against the job's skills. */
 export function keywordCoverage(cv: TailoredCv, text: string): KeywordCoverage {
   const present = detectSkills(text, false);
