@@ -138,7 +138,7 @@ export async function sendDigest(): Promise<number | undefined> {
 // ---------- Commands ----------
 
 const HELP = `<b>Job Hunt Autopilot</b>
-Paste a job description, a LinkedIn "we're hiring" post or a job link, and I'll score it and send a tailored CV.
+Paste a job description, a LinkedIn "we're hiring" post or a job link, and I'll score it. Tap 📄 CV on any job for a tailored CV.
 
 /top - best open matches
 /job &lt;id&gt; - one job with buttons
@@ -186,13 +186,12 @@ async function onCommand(chatId: number, cmd: string, arg: string) {
   }
 }
 
-/** Paste-to-CV: score a job you found yourself, store it, and send the tailored CV. */
+/** Paste a job: score it and store it. The card's 📄 CV button makes the CV when you want it. */
 async function onJobText(chatId: number, text: string) {
   if (text.length < 40 && !/https?:\/\//.test(text)) return send(chatId, 'Send a full job description or a job link (or /help).');
   await send(chatId, 'Reading the job…');
   const j = await addManualJob({ text });
   await send(chatId, jobCard(j), jobButtons(j));
-  await sendCv(chatId, j);
 }
 
 async function onCallback(q: any) {

@@ -143,6 +143,8 @@ src/
 - CV: an instant preview (the fit-to-one-page script runs in your browser) and a Chrome-rendered PDF download with the ATS coverage line. Renders are shared one at a time with the bot.
 - Pipeline view: Saved / Applied / Interview / Offer / Rejected / Skipped columns. Drag cards to change status, click a card to open it.
 - Add job: paste text or a link, the same as the bot's paste-to-CV.
+- CVs are only made on request: **Create tailored CV** on the dashboard, or **📄 CV** on a bot card. Opening a job or pasting one into the bot never builds a CV by itself.
+- Friendlier UI: quick views (Best matches, All open, Saved, Everything) with the detailed filters folded away, actions that follow your progress (Save / I applied / Not for me → Got an interview → Got an offer), plain-language score and location labels, "NEW since your last visit" badges, and a folded description.
 
 **LinkedIn search (2026-10-25):** 12 queries, each run in two locations. "Worldwide" (24h, 2 pages) mostly returns remote-within-one-country jobs. "Bangladesh" (7 days, 1 page) returns remote jobs you're eligible for: 11 eligible matches on the first run, compared with about 1 before. Descriptions are only downloaded for jobs that aren't restricted and don't already have one. A 429 stops the run politely. View the results with `make jobs SOURCE=linkedin`.
 

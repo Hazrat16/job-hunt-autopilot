@@ -12,38 +12,46 @@
     <div class="brand">🎯 Job Hunt Autopilot</div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="jobs" role="tab">Jobs</button>
-      <button class="tab" data-view="pipeline" role="tab">Pipeline</button>
+      <button class="tab" data-view="pipeline" role="tab">My applications <span class="count" id="pipeCount"></span></button>
     </nav>
     <div class="stats" id="stats"></div>
     <div class="actions">
-      <button class="btn" id="fetchBtn" title="Check all job sources now (1–3 minutes)">⟳ Fetch now</button>
-      <button class="btn primary" id="addBtn">+ Add job</button>
+      <button class="btn" id="fetchBtn" title="Check all job sources now (1–3 minutes)">⟳ Find new jobs</button>
+      <button class="btn primary" id="addBtn">+ Add a job</button>
     </div>
   </header>
 
   <main id="jobsView" class="jobs-view">
     <section class="list-pane">
       <div class="filters">
-        <input id="q" type="search" placeholder="Search title, company, description…" autocomplete="off">
-        <div class="filter-row">
-          <label class="score-filter">Score ≥ <output id="minOut">0</output>
-            <input id="min" type="range" min="0" max="100" step="5" value="0">
-          </label>
-          <div class="chips" id="eligChips"></div>
+        <div class="segmented" id="presets" role="tablist" aria-label="Quick views">
+          <button data-preset="best" aria-pressed="true" title="Score 50+, a location you can work from, not applied or skipped yet">Best matches</button>
+          <button data-preset="open" title="Everything you haven't applied to or skipped">All open</button>
+          <button data-preset="saved" title="Jobs you saved">⭐ Saved</button>
+          <button data-preset="all" title="Every stored job, including restricted ones">Everything</button>
         </div>
-        <div class="filter-row">
-          <select id="status" title="Status">
-            <option value="new,saved" title="New and saved">Open</option>
-            <option value="">All statuses</option>
-          </select>
-          <select id="source" title="Source"><option value="">All sources</option></select>
-          <select id="days" title="Posted within">
-            <option value="">Any time</option>
-            <option value="1">Last 24h</option>
-            <option value="3">Last 3 days</option>
-            <option value="7">Last 7 days</option>
-            <option value="30">Last 30 days</option>
-          </select>
+        <div class="search-row">
+          <input id="q" type="search" placeholder="Search jobs, companies, skills…" autocomplete="off">
+          <button class="btn subtle" id="moreFilters" aria-expanded="false">Filters <span id="filterBadge" class="badge" hidden></span></button>
+        </div>
+        <div class="more-filters" id="filterPanel" hidden>
+          <label class="field">Minimum score <output id="minOut">50</output>
+            <input id="min" type="range" min="0" max="100" step="5" value="50">
+          </label>
+          <div class="field">Location
+            <div class="chips" id="eligChips"></div>
+          </div>
+          <div class="field-row">
+            <label class="field">Source <select id="source"><option value="">All sources</option></select></label>
+            <label class="field">Posted <select id="days">
+              <option value="">Any time</option>
+              <option value="1">Last 24 hours</option>
+              <option value="3">Last 3 days</option>
+              <option value="7">Last week</option>
+              <option value="30">Last month</option>
+            </select></label>
+          </div>
+          <button class="link-btn" id="resetFilters">Reset filters</button>
         </div>
       </div>
       <div class="list-count" id="listCount"></div>
@@ -51,28 +59,35 @@
     </section>
 
     <section class="detail-pane" id="detail">
-      <div class="empty">Select a job to see details, its tailored CV and your notes.</div>
+      <div class="empty">
+        <div class="empty-icon">👈</div>
+        Pick a job to see why it matches, save it, or make a tailored CV.
+      </div>
     </section>
   </main>
 
   <main id="pipelineView" class="pipeline-view" hidden>
+    <p class="board-hint">Drag a card to another column to update it. Click a card to open the job.</p>
     <div class="board" id="board"></div>
   </main>
 
   <dialog id="addDialog">
     <form method="dialog" id="addForm">
-      <h2>Add a job</h2>
-      <p class="hint">Paste a job description or a LinkedIn "we're hiring" post, or give a job link. It's scored and stored like any other job.</p>
-      <textarea name="text" rows="10" placeholder="Paste the job text here…"></textarea>
-      <input name="url" type="url" placeholder="…or a job link (https://…)">
-      <div class="two">
-        <input name="title" placeholder="Title (optional)">
-        <input name="company" placeholder="Company (optional)">
-      </div>
+      <h2>Add a job you found</h2>
+      <p class="hint">Paste the job description or a LinkedIn "we're hiring" post, or give a link to the job page. It's scored like every other job; you can make a CV for it afterwards.</p>
+      <textarea name="text" rows="9" placeholder="Paste the job text here…"></textarea>
+      <input name="url" type="url" placeholder="…or a link: https://…">
+      <details>
+        <summary>Title and company (optional)</summary>
+        <div class="two">
+          <input name="title" placeholder="Job title">
+          <input name="company" placeholder="Company">
+        </div>
+      </details>
       <p class="error" id="addError" hidden></p>
       <div class="dialog-actions">
         <button class="btn" value="cancel" formnovalidate>Cancel</button>
-        <button class="btn primary" id="addSubmit" value="add">Add and score</button>
+        <button class="btn primary" id="addSubmit" value="add">Add job</button>
       </div>
     </form>
   </dialog>
