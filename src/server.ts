@@ -10,6 +10,7 @@ import {
   getJob, getKv, jobEvents, listJobs, setNotes, setStatus, sourceCounts, stats, type JobRow, type Status,
 } from './db.ts';
 import type { Eligibility } from './eligibility.ts';
+import type { WorkType } from './work-type.ts';
 import { addManualJob, fetchAllShared } from './pipeline.ts';
 import { detectEmailApply, draftEmail } from './apply-email.ts';
 
@@ -62,6 +63,7 @@ export function createApp() {
       q: typeof q.q === 'string' && q.q.trim() ? q.q.trim() : undefined,
       minScore: q.min ? Number(q.min) : undefined,
       eligibility: list(q.eligibility) as Eligibility[] | undefined,
+      workType: list(q.work) as WorkType[] | undefined,
       status: list(q.status) as Status[] | undefined,
       source: typeof q.source === 'string' && q.source ? q.source : undefined,
       sinceDays: q.days ? Number(q.days) : undefined,

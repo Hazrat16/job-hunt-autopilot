@@ -1,3 +1,5 @@
+import type { WorkType } from '../work-type.ts';
+
 export interface RawJob {
   source: string;
   sourceId: string;
@@ -12,6 +14,8 @@ export interface RawJob {
   tags?: string[];
   salary?: string;
   postedAt?: string;
+  /** The source's own remote/hybrid/on-site field, when it has one. */
+  workType?: WorkType;
 }
 
 export interface Source {

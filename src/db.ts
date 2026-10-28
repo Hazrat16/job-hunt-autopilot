@@ -5,6 +5,7 @@ import { DATA_DIR, type Variant } from './config.ts';
 import type { Eligibility } from './eligibility.ts';
 import type { JobScore, ScoreInput } from './match.ts';
 import type { RawJob } from './sources/types.ts';
+import { WORK_TYPE_RULES, workType, type WorkType } from './work-type.ts';
 
 export type Status = 'new' | 'saved' | 'applied' | 'interview' | 'offer' | 'rejected' | 'skipped';
 
@@ -33,6 +34,7 @@ export interface JobRow {
   matched: string[];
   missing: string[];
   seniority: string;
+  work_type: WorkType;
   status: Status;
   status_at: string | null;
   notes: string | null;
@@ -92,6 +94,16 @@ db.exec(`
 // Columns added after the first release.
 const cols = new Set(db.prepare('PRAGMA table_info(jobs)').all().map((c) => c.name as string));
 for (const c of ['notified_at', 'reminded_at']) if (!cols.has(c)) db.exec(`ALTER TABLE jobs ADD COLUMN ${c} TEXT`);
+if (!cols.has('work_type')) db.exec("ALTER TABLE jobs ADD COLUMN work_type TEXT NOT NULL DEFAULT 'unknown'");
+// Stored jobs are classified from their text, so a source's own workplace field isn't reapplied here.
+if (getKv('work_type_rules') !== String(WORK_TYPE_RULES)) {
+  const update = db.prepare('UPDATE jobs SET work_type = ? WHERE id = ?');
+  db.exec('BEGIN');
+  for (const r of db.prepare('SELECT id, source, title, location, location_hints, description FROM jobs').all() as any[])
+    update.run(workType({ ...r, locationHints: JSON.parse(r.location_hints) }), r.id);
+  db.exec('COMMIT');
+  setKv('work_type_rules', String(WORK_TYPE_RULES));
+}
 
 /** Small persistent settings/state (Telegram chat id, last fetch time, ...). */
 export function getKv(key: string): string | undefined {
@@ -149,12 +161,14 @@ export function upsertJob(job: RawJob, score: (j: ScoreInput) => JobScore, minSc
       const s = score({ title: row.title, description: job.description, location: job.location ?? row.location ?? undefined, locationHints: hints });
       db.prepare(
         `UPDATE jobs SET seen_on = ?, last_seen = ?, description = ?, location = COALESCE(?, location), location_hints = ?,
-           salary = COALESCE(salary, ?), score = ?, variant = ?, eligibility = ?, eligibility_reason = ?, matched = ?, missing = ?, seniority = ?
+           salary = COALESCE(salary, ?), score = ?, variant = ?, eligibility = ?, eligibility_reason = ?, matched = ?, missing = ?, seniority = ?,
+           work_type = ?
          WHERE id = ?`,
       ).run(
         JSON.stringify(seenOn), now, job.description, job.location ?? null, JSON.stringify(hints),
         job.salary ?? null, s.score, s.variant, s.eligibility, s.eligibilityReason,
-        JSON.stringify(s.matched), JSON.stringify(s.missing), s.seniority, row.id,
+        JSON.stringify(s.matched), JSON.stringify(s.missing), s.seniority,
+        workType({ ...job, location: job.location ?? row.location ?? undefined, locationHints: hints }), row.id,
       );
     } else {
       db.prepare('UPDATE jobs SET seen_on = ?, last_seen = ?, salary = COALESCE(salary, ?) WHERE id = ?').run(JSON.stringify(seenOn), now, job.salary ?? null, row.id);
@@ -170,14 +184,14 @@ export function upsertJob(job: RawJob, score: (j: ScoreInput) => JobScore, minSc
   const res = db
     .prepare(
       `INSERT INTO jobs (dedupe_key, source, source_id, seen_on, url, apply_url, title, company, location, location_hints, description,
-         tags, salary, posted_at, first_seen, last_seen, score, variant, eligibility, eligibility_reason, matched, missing, seniority)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         tags, salary, posted_at, first_seen, last_seen, score, variant, eligibility, eligibility_reason, matched, missing, seniority, work_type)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       key, job.source, job.sourceId, JSON.stringify([job.source]), job.url, job.applyUrl ?? null, job.title, job.company,
       job.location ?? null, JSON.stringify(job.locationHints ?? []), job.description, JSON.stringify(job.tags ?? []),
       job.salary ?? null, job.postedAt ?? null, now, now, s.score, s.variant, s.eligibility, s.eligibilityReason,
-      JSON.stringify(s.matched), JSON.stringify(s.missing), s.seniority,
+      JSON.stringify(s.matched), JSON.stringify(s.missing), s.seniority, workType(job),
     );
   db.prepare('INSERT INTO job_sources (source, source_id, job_id) VALUES (?, ?, ?)').run(job.source, job.sourceId, res.lastInsertRowid);
   return 'new';
@@ -205,6 +219,7 @@ export function getJob(id: number): JobRow | undefined {
 }
 
 export interface JobFilter {
+  workType?: WorkType[];
   /** Hides untouched (status new) jobs posted more than this many days ago. */
   freshDays?: number;
   minScore?: number; eligibility?: Eligibility[]; status?: Status[]; sinceDays?: number; firstSeenAfter?: string; source?: string; q?: string; limit?: number }
@@ -215,6 +230,7 @@ export function listJobs(f: JobFilter = {}): JobRow[] {
   const args: (string | number)[] = [];
   if (f.minScore !== undefined) (where.push('score >= ?'), args.push(f.minScore));
   if (f.eligibility?.length) (where.push(`eligibility IN (${f.eligibility.map(() => '?').join(',')})`), args.push(...f.eligibility));
+  if (f.workType?.length) (where.push(`work_type IN (${f.workType.map(() => '?').join(',')})`), args.push(...f.workType));
   if (f.status?.length) (where.push(`status IN (${f.status.map(() => '?').join(',')})`), args.push(...f.status));
   if (f.sinceDays) (where.push("COALESCE(posted_at, first_seen) >= ?"), args.push(new Date(Date.now() - f.sinceDays * 864e5).toISOString()));
   if (f.freshDays) (where.push("(status != 'new' OR COALESCE(posted_at, first_seen) >= ?)"), args.push(new Date(Date.now() - f.freshDays * 864e5).toISOString()));

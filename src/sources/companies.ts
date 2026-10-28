@@ -1,6 +1,7 @@
 // Company career pages hosted on Greenhouse, Ashby and Lever (all expose public JSON APIs).
 import type { RawJob, Source } from './types.ts';
 import { getJson, htmlToText, toIso } from '../util.ts';
+import { parseWorkType } from '../work-type.ts';
 
 function decodeEntities(s: string): string {
   return s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
@@ -66,6 +67,7 @@ export function ashby(slugs: string[]): Source {
               locationHints: locs,
               description: j.descriptionPlain ?? htmlToText(j.descriptionHtml),
               postedAt: toIso(j.publishedAt),
+              workType: parseWorkType(j.workplaceType) ?? (j.isRemote ? 'remote' : undefined),
             });
           }
         } catch (e) {
@@ -100,6 +102,7 @@ export function lever(slugs: string[]): Source {
               locationHints: loc ? [loc] : [],
               description: [j.descriptionPlain, lists, j.additionalPlain].filter(Boolean).join('\n\n'),
               postedAt: toIso(j.createdAt),
+              workType: parseWorkType(j.workplaceType),
             });
           }
         } catch (e) {

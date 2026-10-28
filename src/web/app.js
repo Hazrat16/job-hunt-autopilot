@@ -9,6 +9,12 @@ const ELIG = {
   unknown: { icon: 'help', label: 'Location not stated', tone: 'mid' },
   restricted: { icon: 'ban', label: 'Not open to you', tone: 'bad' },
 };
+const WORK = {
+  remote: { icon: 'home', label: 'Remote' },
+  hybrid: { icon: 'shuffle', label: 'Hybrid' },
+  onsite: { icon: 'building', label: 'On-site' },
+  unknown: { icon: 'help', label: 'Not stated' },
+};
 const VARIANT_NAME = { fullstack: 'Full-stack', frontend: 'Frontend', backend: 'Backend', devops: 'DevOps', cloud: 'Cloud', ai: 'Full-stack + AI' };
 const BOARD = [
   { status: 'saved', label: 'Saved', color: 'var(--mid)' },
@@ -35,6 +41,7 @@ const state = {
   selected: null, // full job incl. description and events
   preset: 'best',
   eligibility: new Set(PRESETS.best.elig),
+  work: new Set(Object.keys(WORK)),
   view: 'jobs',
   cvOpen: false,
   emailDraft: null, // the open email draft for the selected job, including your edits
@@ -119,6 +126,7 @@ async function loadMeta() {
   src.innerHTML = '<option value="">All sources</option>' + m.sources.map((x) => `<option value="${esc(x.source)}">${esc(x.source)} (${x.n})</option>`).join('');
   src.value = cur;
   renderEligChips();
+  renderWorkChips();
 }
 
 function renderEligChips() {
@@ -127,16 +135,24 @@ function renderEligChips() {
     .join('');
 }
 
+function renderWorkChips() {
+  $('#workChips').innerHTML = Object.entries(WORK)
+    .map(([k, w]) => `<button class="chip" data-work="${k}" aria-pressed="${state.work.has(k)}">${icon(w.icon)}${w.label}</button>`)
+    .join('');
+}
+
 function applyPreset(name) {
   state.preset = name;
   const p = PRESETS[name];
   state.eligibility = new Set(p.elig);
+  state.work = new Set(Object.keys(WORK));
   $('#min').value = p.min;
   $('#minOut').textContent = p.min;
   $('#source').value = '';
   $('#days').value = '';
   document.querySelectorAll('#presets button').forEach((b) => b.setAttribute('aria-pressed', b.dataset.preset === name));
   renderEligChips();
+  renderWorkChips();
   loadJobs();
 }
 
@@ -146,6 +162,7 @@ function changedFilters() {
   let n = 0;
   if (+$('#min').value !== p.min) n++;
   if (state.eligibility.size !== p.elig.length || p.elig.some((e) => !state.eligibility.has(e))) n++;
+  if (state.work.size < 4) n++;
   if ($('#source').value) n++;
   if ($('#days').value) n++;
   return n;
@@ -157,6 +174,7 @@ function filterQuery() {
   if (q) p.set('q', q);
   if (+$('#min').value) p.set('min', $('#min').value);
   if (state.eligibility.size < 4) p.set('eligibility', [...state.eligibility].join(',') || 'none');
+  if (state.work.size < 4) p.set('work', [...state.work].join(',') || 'none');
   if (PRESETS[state.preset].status) p.set('status', PRESETS[state.preset].status);
   if ($('#source').value) p.set('source', $('#source').value);
   if ($('#days').value) p.set('days', $('#days').value);
@@ -206,6 +224,7 @@ function renderList() {
           <div class="sub">${esc(j.company)}${j.salary ? ` · ${esc(j.salary)}` : ''}</div>
           <div class="meta">
             <span>${icon(e.icon)}${e.label}</span>
+            ${j.work_type !== 'unknown' ? `<span>${icon(WORK[j.work_type].icon)}${WORK[j.work_type].label}</span>` : ''}
             <span>${icon('clock')}${ago(j.posted_at || j.first_seen)}</span>
             ${j.apply_email ? `<span title="Apply by email: ${esc(j.apply_email)}">${icon('mail')}Email</span>` : ''}
             ${isNew(j) ? '<span class="new-dot">NEW</span>' : ''}
@@ -283,6 +302,7 @@ function renderDetail() {
     </div>
     <div class="facts">
       <span class="fact ${e.tone}">${icon(e.icon)}${e.label}</span>
+      <span class="fact">${icon(WORK[j.work_type].icon)}${j.work_type === 'unknown' ? 'Work type not stated' : WORK[j.work_type].label}</span>
       ${j.salary ? `<span class="fact">${icon('money')}${esc(j.salary)}</span>` : ''}
       <span class="fact">${icon('clock')}Posted ${ago(j.posted_at || j.first_seen)}</span>
       <span class="fact">${icon('inbox')}via ${esc(j.seen_on.join(', '))}</span>
@@ -503,6 +523,15 @@ $('#eligChips').addEventListener('click', (e) => {
   const v = chip.dataset.elig;
   state.eligibility.has(v) ? state.eligibility.delete(v) : state.eligibility.add(v);
   chip.setAttribute('aria-pressed', state.eligibility.has(v));
+  loadJobs();
+});
+
+$('#workChips').addEventListener('click', (e) => {
+  const chip = e.target.closest('[data-work]');
+  if (!chip) return;
+  const v = chip.dataset.work;
+  state.work.has(v) ? state.work.delete(v) : state.work.add(v);
+  chip.setAttribute('aria-pressed', state.work.has(v));
   loadJobs();
 });
 
