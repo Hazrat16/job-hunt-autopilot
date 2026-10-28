@@ -83,6 +83,8 @@ db.exec(`
     PRIMARY KEY (source, source_id)
   );
   CREATE INDEX IF NOT EXISTS jobs_score ON jobs(score DESC);
+  -- Fetched jobs that aren't stored (low score) or were cleaned up, so later fetches don't add them back.
+  CREATE TABLE IF NOT EXISTS ignored_sources (source TEXT NOT NULL, source_id TEXT NOT NULL, reason TEXT NOT NULL, PRIMARY KEY (source, source_id));
   CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS job_events (job_id INTEGER NOT NULL REFERENCES jobs(id), status TEXT NOT NULL, at TEXT NOT NULL);
 `);
@@ -120,13 +122,16 @@ export function dedupeKey(job: Pick<RawJob, 'company' | 'title'>): string {
   return `${company}|${title}`;
 }
 
-export type UpsertResult = 'new' | 'duplicate' | 'updated' | 'seen';
+export type UpsertResult = 'new' | 'duplicate' | 'updated' | 'seen' | 'low' | 'ignored';
 
 /**
  * Inserts a job, or merges it into the stored copy: records the extra source, and keeps the
  * longer description (LinkedIn search cards often have none), re-scoring when it changes.
+ * With minScore (fetches, not manual adds), a new job (with a description) scoring below it is not
+ * stored and its source id is remembered; ignored source ids are skipped.
  */
-export function upsertJob(job: RawJob, score: (j: ScoreInput) => JobScore): UpsertResult {
+export function upsertJob(job: RawJob, score: (j: ScoreInput) => JobScore, minScore?: number): UpsertResult {
+  if (minScore !== undefined && isIgnored(job.source, job.sourceId)) return 'ignored';
   const now = new Date().toISOString();
   const known = db.prepare('SELECT job_id FROM job_sources WHERE source = ? AND source_id = ?').get(job.source, job.sourceId) as
     | { job_id: number }
@@ -158,6 +163,10 @@ export function upsertJob(job: RawJob, score: (j: ScoreInput) => JobScore): Upse
   }
 
   const s = score(job);
+  if (minScore !== undefined && s.score < minScore && job.description) {
+    db.prepare("INSERT OR REPLACE INTO ignored_sources (source, source_id, reason) VALUES (?, ?, 'low score')").run(job.source, job.sourceId);
+    return 'low';
+  }
   const res = db
     .prepare(
       `INSERT INTO jobs (dedupe_key, source, source_id, seen_on, url, apply_url, title, company, location, location_hints, description,
@@ -178,10 +187,15 @@ export function jobIdBySource(source: string, sourceId: string): number | undefi
   return (db.prepare('SELECT job_id FROM job_sources WHERE source = ? AND source_id = ?').get(source, sourceId) as { job_id: number } | undefined)?.job_id;
 }
 
+function isIgnored(source: string, sourceId: string): boolean {
+  return Boolean(db.prepare('SELECT 1 FROM ignored_sources WHERE source = ? AND source_id = ?').get(source, sourceId));
+}
+
 /** Whether a source's job is stored with a description (LinkedIn search cards arrive without one). */
 export function hasDescription(source: string, sourceId: string): boolean {
-  return Boolean(
-    db.prepare("SELECT 1 FROM job_sources s JOIN jobs j ON j.id = s.job_id WHERE s.source = ? AND s.source_id = ? AND j.description != ''").get(source, sourceId),
+  return (
+    isIgnored(source, sourceId) ||
+    Boolean(db.prepare("SELECT 1 FROM job_sources s JOIN jobs j ON j.id = s.job_id WHERE s.source = ? AND s.source_id = ? AND j.description != ''").get(source, sourceId))
   );
 }
 
@@ -190,7 +204,10 @@ export function getJob(id: number): JobRow | undefined {
   return row && parse(row);
 }
 
-export interface JobFilter { minScore?: number; eligibility?: Eligibility[]; status?: Status[]; sinceDays?: number; firstSeenAfter?: string; source?: string; q?: string; limit?: number }
+export interface JobFilter {
+  /** Hides untouched (status new) jobs posted more than this many days ago. */
+  freshDays?: number;
+  minScore?: number; eligibility?: Eligibility[]; status?: Status[]; sinceDays?: number; firstSeenAfter?: string; source?: string; q?: string; limit?: number }
 
 /** Best matches first. */
 export function listJobs(f: JobFilter = {}): JobRow[] {
@@ -200,6 +217,7 @@ export function listJobs(f: JobFilter = {}): JobRow[] {
   if (f.eligibility?.length) (where.push(`eligibility IN (${f.eligibility.map(() => '?').join(',')})`), args.push(...f.eligibility));
   if (f.status?.length) (where.push(`status IN (${f.status.map(() => '?').join(',')})`), args.push(...f.status));
   if (f.sinceDays) (where.push("COALESCE(posted_at, first_seen) >= ?"), args.push(new Date(Date.now() - f.sinceDays * 864e5).toISOString()));
+  if (f.freshDays) (where.push("(status != 'new' OR COALESCE(posted_at, first_seen) >= ?)"), args.push(new Date(Date.now() - f.freshDays * 864e5).toISOString()));
   if (f.firstSeenAfter) (where.push('first_seen >= ?'), args.push(f.firstSeenAfter));
   // Any board the job was seen on, not just the first one.
   if (f.source) (where.push('EXISTS (SELECT 1 FROM job_sources s WHERE s.job_id = jobs.id AND s.source = ?)'), args.push(f.source));
@@ -210,6 +228,22 @@ export function listJobs(f: JobFilter = {}): JobRow[] {
   }
   const sql = `SELECT * FROM jobs ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY score DESC, COALESCE(posted_at, first_seen) DESC LIMIT ?`;
   return db.prepare(sql).all(...args, f.limit ?? 50).map(parse);
+}
+
+/**
+ * Deletes jobs posted more than `days` ago that you never acted on (still "new", no notes, no status
+ * changes), remembering their source ids so fetches don't add them back. Returns how many were deleted.
+ */
+export function deleteStaleJobs(days: number): number {
+  const before = new Date(Date.now() - days * 864e5).toISOString();
+  const stale = `SELECT id FROM jobs WHERE status = 'new' AND (notes IS NULL OR notes = '') AND COALESCE(posted_at, first_seen) < ?
+    AND NOT EXISTS (SELECT 1 FROM job_events e WHERE e.job_id = jobs.id)`;
+  db.exec('BEGIN');
+  db.prepare(`INSERT OR REPLACE INTO ignored_sources (source, source_id, reason) SELECT source, source_id, 'stale' FROM job_sources WHERE job_id IN (${stale})`).run(before);
+  db.prepare(`DELETE FROM job_sources WHERE job_id IN (${stale})`).run(before);
+  const n = Number(db.prepare(`DELETE FROM jobs WHERE id IN (${stale})`).run(before).changes);
+  db.exec('COMMIT');
+  return n;
 }
 
 /** Re-scores every stored job, e.g. after editing config.yaml or the profile. */

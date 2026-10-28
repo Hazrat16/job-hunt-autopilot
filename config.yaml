@@ -49,6 +49,14 @@ hn_whos_hiring: true
 # Jobs posted longer ago than this are ignored when fetching.
 max_job_age_days: 30
 
+# Fetched jobs scoring below this aren't saved. Jobs you add yourself are always saved.
+min_score_to_save: 50
+
+# Jobs you haven't acted on drop out of "Best" and "Open" after this many days (by posting date)...
+open_max_age_days: 15
+# ...and are deleted after this many. Saved, applied, skipped or noted jobs are kept.
+delete_untouched_after_days: 30
+
 # Companies whose public job boards are checked directly.
 watchlist:
   greenhouse: [gitlab, canonical, automatticcareers, grafanalabs, elastic, cloudflare, vercel, wikimedia, mongodb]

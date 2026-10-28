@@ -1,6 +1,6 @@
 // One fetch run: every source in parallel, then dedupe, score and store.
 import { config } from './config.ts';
-import { getJob, jobIdBySource, setKv, upsertJob, type JobRow, type UpsertResult } from './db.ts';
+import { deleteStaleJobs, getJob, jobIdBySource, setKv, upsertJob, type JobRow, type UpsertResult } from './db.ts';
 import { isRelevantTitle, scoreJob } from './match.ts';
 import { arbeitnow, himalayas, hnWhosHiring, jobicy, remoteok, remotive, weworkremotely } from './sources/boards.ts';
 import { ashby, greenhouse, lever } from './sources/companies.ts';
@@ -27,7 +27,7 @@ function isTooOld(job: RawJob): boolean {
   return Date.now() - new Date(job.postedAt).getTime() > config.max_job_age_days * 864e5;
 }
 
-/** A job you found yourself (pasted text or a link): scored and stored like any other. */
+/** A job you found yourself (pasted text or a link): scored and stored whatever the score. */
 export async function addManualJob(input: { text?: string; url?: string; title?: string; company?: string }): Promise<JobRow> {
   const job = await jobFromInput(input);
   if (job.description.length < 80) throw new Error("Couldn't read a job description from that. Paste the job text instead.");
@@ -47,15 +47,16 @@ export function fetchAllShared(): Promise<SourceReport[]> {
 
 /** @param only source names to run (default: all). */
 export async function fetchJobs(only?: string[]): Promise<SourceReport[]> {
+  deleteStaleJobs(config.delete_untouched_after_days);
   const sources = allSources().filter((s) => !only?.length || only.includes(s.name));
   return Promise.all(
     sources.map(async (s): Promise<SourceReport> => {
       const t0 = Date.now();
-      const counts: Record<UpsertResult, number> = { new: 0, duplicate: 0, updated: 0, seen: 0 };
+      const counts: Record<UpsertResult, number> = { new: 0, duplicate: 0, updated: 0, seen: 0, low: 0, ignored: 0 };
       try {
         const jobs = await s.fetch(isRelevantTitle);
         const fresh = jobs.filter((j) => !isTooOld(j) && j.title && j.company);
-        for (const j of fresh) counts[upsertJob(j, scoreJob)]++;
+        for (const j of fresh) counts[upsertJob(j, scoreJob, config.min_score_to_save)]++;
         return { source: s.name, fetched: jobs.length, tooOld: jobs.length - fresh.length, counts, ms: Date.now() - t0 };
       } catch (e) {
         return { source: s.name, fetched: 0, tooOld: 0, counts, error: (e as Error).message, ms: Date.now() - t0 };

@@ -21,6 +21,9 @@ export interface Config {
   linkedin: { enabled: boolean; queries: string[]; locations: { name: string; geo_id?: string; hours_back: number; pages: number }[]; max_detail_fetches: number };
   hn_whos_hiring: boolean;
   max_job_age_days: number;
+  min_score_to_save: number;
+  open_max_age_days: number;
+  delete_untouched_after_days: number;
   watchlist: { greenhouse: string[]; ashby: string[]; lever: string[] };
   digest: { min_score: number; max_jobs: number; include_unknown_location: boolean; follow_up_after_days: number };
   schedule: { fetch_every_hours: number; digest_at: string };

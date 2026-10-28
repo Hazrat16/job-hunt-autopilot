@@ -67,11 +67,11 @@ async function cmdFetch(argv: string[]) {
   const { fetchJobs } = await import('./pipeline.ts');
   const t0 = Date.now();
   const reports = await fetchJobs(values.source?.split(',').map((s) => s.trim()));
-  console.log(`\n${'source'.padEnd(16)}${'fetched'.padStart(8)}${'new'.padStart(6)}${'dup'.padStart(6)}${'upd'.padStart(6)}${'seen'.padStart(6)}${'old'.padStart(6)}   time`);
+  console.log(`\n${'source'.padEnd(16)}${'fetched'.padStart(8)}${'new'.padStart(6)}${'dup'.padStart(6)}${'upd'.padStart(6)}${'seen'.padStart(6)}${'low'.padStart(6)}${'old'.padStart(6)}   time`);
   for (const r of reports) {
     const c = r.counts;
     console.log(
-      `${r.source.padEnd(16)}${String(r.fetched).padStart(8)}${String(c.new).padStart(6)}${String(c.duplicate).padStart(6)}${String(c.updated).padStart(6)}${String(c.seen).padStart(6)}${String(r.tooOld).padStart(6)}   ${(r.ms / 1000).toFixed(1)}s${r.error ? `   ERROR: ${r.error}` : ''}`,
+      `${r.source.padEnd(16)}${String(r.fetched).padStart(8)}${String(c.new).padStart(6)}${String(c.duplicate).padStart(6)}${String(c.updated).padStart(6)}${String(c.seen).padStart(6)}${String(c.low).padStart(6)}${String(r.tooOld).padStart(6)}   ${(r.ms / 1000).toFixed(1)}s${r.error ? `   ERROR: ${r.error}` : ''}`,
     );
   }
   const added = reports.reduce((n, r) => n + r.counts.new, 0);

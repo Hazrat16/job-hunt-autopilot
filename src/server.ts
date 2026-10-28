@@ -65,6 +65,7 @@ export function createApp() {
       status: list(q.status) as Status[] | undefined,
       source: typeof q.source === 'string' && q.source ? q.source : undefined,
       sinceDays: q.days ? Number(q.days) : undefined,
+      freshDays: q.fresh ? config.open_max_age_days : undefined,
       limit: emailOnly ? 5000 : limit,
     });
     const jobs = rows.map(summary);

@@ -22,8 +22,8 @@ const OPEN = ['worldwide', 'asia', 'unknown'];
 
 // Quick views: each sets the status filter and default score/location filters.
 const PRESETS = {
-  best: { status: 'new,saved', min: 50, elig: OPEN, empty: ['No strong matches right now', 'Try "Open", or find new jobs.'] },
-  open: { status: 'new,saved', min: 0, elig: OPEN, empty: ['Nothing open', 'Try "Find new jobs" to check the boards.'] },
+  best: { status: 'new,saved', fresh: true, min: 50, elig: OPEN, empty: ['No strong matches right now', 'Try "Open", or find new jobs.'] },
+  open: { status: 'new,saved', fresh: true, min: 0, elig: OPEN, empty: ['Nothing open', 'Try "Find new jobs" to check the boards.'] },
   saved: { status: 'saved', min: 0, elig: Object.keys(ELIG), empty: ['Nothing saved yet', 'Use Save on a job to keep it here.'] },
   email: { status: '', min: 0, elig: Object.keys(ELIG), apply: 'email', empty: ['No email applications', 'None of your jobs ask you to apply by email right now.'] },
   all: { status: '', min: 0, elig: Object.keys(ELIG), empty: ['No jobs yet', 'Try "Find new jobs" to check the boards.'] },
@@ -161,6 +161,7 @@ function filterQuery() {
   if ($('#source').value) p.set('source', $('#source').value);
   if ($('#days').value) p.set('days', $('#days').value);
   if (PRESETS[state.preset].apply) p.set('apply', PRESETS[state.preset].apply);
+  if (PRESETS[state.preset].fresh) p.set('fresh', '1');
   p.set('limit', '300');
   return p.toString();
 }
