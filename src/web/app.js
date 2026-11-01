@@ -74,6 +74,17 @@ function toast(msg, { error = false, ms = 3500 } = {}) {
   toastTimer = setTimeout(() => (t.hidden = true), ms);
 }
 
+/** Asks in a modal; resolves true only if the action button was pressed (Esc and Cancel don't). */
+function confirmDialog({ title, text, action }) {
+  const d = $('#confirmDialog');
+  $('#confirmTitle').textContent = title;
+  $('#confirmText').textContent = text;
+  $('#confirmOk').textContent = action;
+  d.returnValue = '';
+  d.showModal();
+  return new Promise((resolve) => d.addEventListener('close', () => resolve(d.returnValue === 'ok'), { once: true }));
+}
+
 // ---------- Small visual helpers ----------
 
 const tone = (s) => (s >= 70 ? 'good' : s >= 50 ? 'mid' : 'bad');
@@ -232,6 +243,7 @@ function renderList() {
           </div>
         </div>
         ${ring(j.score)}
+        <button class="btn icon-btn ghost job-del" data-delete="${j.id}" title="Delete job" aria-label="Delete ${esc(j.title)}">${icon('trash')}</button>
       </li>`;
     })
     .join('');
@@ -282,6 +294,26 @@ function actionButtons(j) {
 
 const cardHead = (ico, title, sub = '') => `<div class="card-head"><span class="ico">${icon(ico)}</span><div><h3>${title}</h3>${sub ? `<p>${sub}</p>` : ''}</div></div>`;
 
+function heroWho(j) {
+  return `<h1>${esc(j.title)}</h1>
+    <div class="company">
+      <span>${icon('briefcase')}${esc(j.company)}</span>
+      ${j.location ? `<span>${icon('pin')}${esc(j.location)}</span>` : ''}
+      <button class="link-btn" id="editJob" title="Edit job title and company">${icon('pencil')}Edit</button>
+    </div>`;
+}
+
+function jobEditForm(j) {
+  return `<form class="job-edit" id="jobEdit">
+    <label class="field"><span>Job title</span><input id="editTitle" value="${esc(j.title)}" required></label>
+    <label class="field"><span>Company</span><input id="editCompany" value="${esc(j.company)}" required></label>
+    <div class="row">
+      <button class="btn primary">${icon('check')}Save</button>
+      <button class="btn ghost" type="button" id="cancelEdit">Cancel</button>
+    </div>
+  </form>`;
+}
+
 function renderDetail() {
   const j = state.selected;
   const e = ELIG[j.eligibility];
@@ -291,13 +323,7 @@ function renderDetail() {
   $('#detail').innerHTML = `<div class="detail-inner">
     <div class="hero">
       ${mono(j.company, 'lg')}
-      <div class="who">
-        <h1>${esc(j.title)}</h1>
-        <div class="company">
-          <span>${icon('briefcase')}${esc(j.company)}</span>
-          ${j.location ? `<span>${icon('pin')}${esc(j.location)}</span>` : ''}
-        </div>
-      </div>
+      <div class="who" id="heroWho">${heroWho(j)}</div>
       <div class="score-box">${ring(j.score, 64, 5, 'lg')}<small>${scoreLabel(j.score)}</small></div>
     </div>
     <div class="facts">
@@ -312,6 +338,7 @@ function renderDetail() {
       ${link ? `<a class="btn primary" href="${esc(link)}" target="_blank" rel="noopener">Open job${icon('external')}</a>` : ''}
       ${actionButtons(j)}
       <span class="spacer"></span>
+      <button class="btn icon-btn ghost" data-delete="${j.id}" title="Delete job" aria-label="Delete job">${icon('trash')}</button>
       <select id="statusSelect" title="Set any status" aria-label="Set status">
         <option value="">More…</option>
         ${m.statuses.filter((s) => s !== j.status).map((s) => `<option value="${s}">Mark as ${s}</option>`).join('')}
@@ -457,6 +484,62 @@ async function downloadPdf(btn) {
   }
 }
 
+async function saveJobNames(form) {
+  const id = state.selected.id;
+  const title = $('#editTitle').value.trim();
+  const company = $('#editCompany').value.trim();
+  if (!title || !company) return toast('Job title and company can\'t be empty', { error: true });
+  $('button:not([type])', form).disabled = true;
+  try {
+    const j = await api(`/api/jobs/${id}`, { method: 'PATCH', body: { title, company } });
+    const draft = state.emailDraft;
+    // The draft names the role and company. Rewrite it, unless that would throw away your edits.
+    const fresh = draft && !draft.edited ? await api(`/api/jobs/${id}/email`) : null;
+    if (state.selected?.id !== id) return loadJobs();
+    if (fresh) state.emailDraft = { ...fresh, to: draft.to };
+    state.selected = j;
+    renderDetail();
+    toast(draft?.edited ? 'Saved. Your edited email still has the old details' : 'Saved');
+    loadMeta();
+    loadJobs();
+  } catch (err) {
+    toast(`Couldn't save: ${err.message}`, { error: true });
+    if (form.isConnected) $('button:not([type])', form).disabled = false;
+  }
+}
+
+const emptyDetail = $('#detail').innerHTML;
+
+async function deleteJob(id, name) {
+  const ok = await confirmDialog({
+    title: `Delete "${name}"?`,
+    text: "Its notes and status history go too, and fetches won't add it back. This can't be undone.",
+    action: 'Delete job',
+  });
+  if (!ok) return;
+  // The next job down takes its place in the detail pane.
+  const i = state.jobs.findIndex((j) => j.id === id);
+  const next = state.jobs[i + 1] ?? state.jobs[i - 1];
+  try {
+    await api(`/api/jobs/${id}`, { method: 'DELETE' });
+  } catch (err) {
+    return toast(`Couldn't delete: ${err.message}`, { error: true });
+  }
+  toast('Job deleted');
+  state.jobs = state.jobs.filter((j) => j.id !== id);
+  if (state.selected?.id === id) {
+    state.selected = null;
+    if (next && i >= 0) selectJob(next.id, { scroll: true });
+    else {
+      $('#detail').innerHTML = emptyDetail;
+      history.replaceState(null, '', location.pathname);
+    }
+  }
+  renderList();
+  loadMeta();
+  loadJobs();
+}
+
 async function setJobStatus(id, status) {
   const j = await api(`/api/jobs/${id}`, { method: 'PATCH', body: { status } });
   if (state.selected?.id === id) state.selected = j;
@@ -536,6 +619,8 @@ $('#workChips').addEventListener('click', (e) => {
 });
 
 $('#jobList').addEventListener('click', (e) => {
+  const del = e.target.closest('[data-delete]');
+  if (del) return deleteJob(Number(del.dataset.delete), state.jobs.find((j) => j.id === Number(del.dataset.delete)).title);
   const item = e.target.closest('.job-item:not(.skeleton)');
   if (item) selectJob(Number(item.dataset.id));
 });
@@ -565,6 +650,7 @@ $('#detail').addEventListener('click', async (e) => {
     loadJobs();
     return;
   }
+  if (e.target.closest('[data-delete]')) return deleteJob(state.selected.id, state.selected.title);
   const copy = e.target.closest('[data-copy]');
   if (copy) {
     try {
@@ -577,6 +663,15 @@ $('#detail').addEventListener('click', async (e) => {
     return;
   }
   const id = e.target.closest('button')?.id;
+  if (id === 'editJob') {
+    $('#heroWho').innerHTML = jobEditForm(state.selected);
+    $('#editTitle').select();
+    return;
+  }
+  if (id === 'cancelEdit') {
+    $('#heroWho').innerHTML = heroWho(state.selected);
+    return;
+  }
   if (id === 'writeEmail') {
     const btn = e.target.closest('button');
     btn.disabled = true;
@@ -624,7 +719,18 @@ $('#detail').addEventListener('change', async (e) => {
 // Keep email edits when the page redraws (e.g. after a status change).
 $('#detail').addEventListener('input', (e) => {
   const field = { mailTo: 'to', mailSubject: 'subject', mailBody: 'body' }[e.target.id];
-  if (field && state.emailDraft) state.emailDraft[field] = e.target.value;
+  if (field && state.emailDraft) {
+    state.emailDraft[field] = e.target.value;
+    if (field !== 'to') state.emailDraft.edited = true;
+  }
+});
+$('#detail').addEventListener('submit', (e) => {
+  if (e.target.id !== 'jobEdit') return;
+  e.preventDefault();
+  saveJobNames(e.target);
+});
+$('#detail').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && e.target.closest('#jobEdit')) $('#cancelEdit').click();
 });
 // Notes save when you leave the box.
 $('#detail').addEventListener('focusout', async (e) => {

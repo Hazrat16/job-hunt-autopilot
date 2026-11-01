@@ -262,6 +262,16 @@ export function deleteStaleJobs(days: number): number {
   return n;
 }
 
+/** Deletes a job, remembering its source ids so fetches don't add it back. */
+export function deleteJob(id: number): void {
+  db.exec('BEGIN');
+  db.prepare("INSERT OR REPLACE INTO ignored_sources (source, source_id, reason) SELECT source, source_id, 'deleted' FROM job_sources WHERE job_id = ?").run(id);
+  db.prepare('DELETE FROM job_sources WHERE job_id = ?').run(id);
+  db.prepare('DELETE FROM job_events WHERE job_id = ?').run(id);
+  db.prepare('DELETE FROM jobs WHERE id = ?').run(id);
+  db.exec('COMMIT');
+}
+
 /** Re-scores every stored job, e.g. after editing config.yaml or the profile. */
 export function rescoreAll(score: (j: ScoreInput) => JobScore): number {
   const rows = db.prepare('SELECT * FROM jobs').all().map(parse);
@@ -325,6 +335,18 @@ export function setStatus(id: number, status: Status, notes?: string): void {
 
 export function setNotes(id: number, notes: string): void {
   db.prepare('UPDATE jobs SET notes = ? WHERE id = ?').run(notes, id);
+}
+
+/**
+ * Corrects a job's title and company and re-scores it, since the score reads the title. The dedupe
+ * key stays as fetched, so the same posting on another board still merges into this job.
+ */
+export function setJobNames(id: number, title: string, company: string, score: (j: ScoreInput) => JobScore): void {
+  const r = getJob(id)!;
+  const s = score({ title, description: r.description, locationHints: r.location_hints, location: r.location ?? undefined });
+  db.prepare('UPDATE jobs SET title = ?, company = ?, score = ?, variant = ?, eligibility = ?, eligibility_reason = ?, matched = ?, missing = ?, seniority = ? WHERE id = ?').run(
+    title, company, s.score, s.variant, s.eligibility, s.eligibilityReason, JSON.stringify(s.matched), JSON.stringify(s.missing), s.seniority, id,
+  );
 }
 
 /** Status changes for a job, oldest first. */

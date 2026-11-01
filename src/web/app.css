@@ -101,6 +101,8 @@ a { color: var(--accent); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
 .btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 .btn.good { background: var(--good); border-color: var(--good); color: #fff; }
+.btn.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
+.btn.danger:hover { background: var(--bad); border-color: var(--bad); filter: brightness(.92); }
 .btn.ghost { background: transparent; border-color: transparent; box-shadow: none; color: var(--text-2); }
 .btn.ghost:hover { background: var(--surface-2); color: var(--text); }
 .btn.on { background: var(--mid-soft); border-color: transparent; color: var(--mid); }
@@ -197,6 +199,12 @@ input[type=range] { accent-color: var(--accent); width: 100%; }
 .job-item.selected { background: var(--accent-soft); }
 .job-item.selected::before { content: ""; position: absolute; left: -6px; top: 10px; bottom: 10px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent); }
 .job-item .body { min-width: 0; }
+.job-item > .ring { align-self: start; }
+.job-item .job-del { position: absolute; right: 16px; bottom: 4px; width: 24px; height: 24px; color: var(--text-3); opacity: 0; }
+.job-item .job-del .i { width: 14px; height: 14px; }
+.job-item:hover .job-del, .job-item .job-del:focus-visible { opacity: 1; }
+.job-item .job-del:hover { background: var(--bad-soft); color: var(--bad); }
+@media (hover: none) { .job-item .job-del { opacity: 1; } }
 .job-item .title { font-weight: 600; font-size: 14px; letter-spacing: -.005em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .job-item .sub { color: var(--text-2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .job-item .meta { display: flex; gap: 10px; align-items: center; margin-top: 3px; color: var(--text-3); font-size: 12px; white-space: nowrap; overflow: hidden; }
@@ -253,6 +261,11 @@ input[type=range] { accent-color: var(--accent); width: 100%; }
 .hero .company { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--text-2); font-size: 14px; }
 .hero .company span { display: inline-flex; align-items: center; gap: 5px; }
 .hero .company .i { width: 14px; height: 14px; color: var(--text-3); }
+.hero .company .link-btn { display: inline-flex; align-items: center; gap: 5px; }
+.hero .company .link-btn .i { color: inherit; }
+.job-edit { display: flex; flex-direction: column; gap: 10px; }
+.job-edit input { width: 100%; height: 36px; padding: 0 10px; }
+.job-edit .row { display: flex; gap: 8px; }
 .hero .score-box { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .hero .score-box small { font-size: 11.5px; font-weight: 600; color: var(--text-2); white-space: nowrap; }
 
@@ -357,6 +370,9 @@ dialog input { height: 40px; }
 .or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--border); }
 dialog details summary { cursor: pointer; color: var(--text-2); font-size: 13px; font-weight: 500; }
 dialog .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.dialog-icon.danger { background: var(--bad-soft); color: var(--bad); }
+#confirmDialog { width: min(440px, calc(100vw - 32px)); }
+#confirmTitle { overflow-wrap: anywhere; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 .error { color: var(--bad); margin: 0; font-size: 13px; }
 

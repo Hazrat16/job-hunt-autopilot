@@ -7,9 +7,10 @@ import { cvFileName, cvFolder, FONT_DIR, fitLimitPx, renderCvQueued } from './cv
 import { formatCoverage, tailor } from './cv/tailor.ts';
 import { renderHtml } from './cv/template.ts';
 import {
-  getJob, getKv, jobEvents, listJobs, setNotes, setStatus, sourceCounts, stats, type JobRow, type Status,
+  deleteJob, getJob, getKv, jobEvents, listJobs, setJobNames, setNotes, setStatus, sourceCounts, stats, type JobRow, type Status,
 } from './db.ts';
 import type { Eligibility } from './eligibility.ts';
+import { scoreJob } from './match.ts';
 import type { WorkType } from './work-type.ts';
 import { addManualJob, fetchAllShared } from './pipeline.ts';
 import { detectEmailApply, draftEmail } from './apply-email.ts';
@@ -82,14 +83,24 @@ export function createApp() {
   app.patch('/api/jobs/:id', (req, res) => {
     const j = jobOr404(req, res);
     if (!j) return;
-    const { status, notes } = req.body ?? {};
+    const { status, notes, title, company } = req.body ?? {};
+    for (const [name, v] of Object.entries({ title, company }))
+      if (v !== undefined && (typeof v !== 'string' || !v.trim())) return res.status(400).json({ error: `${name} can't be empty` });
     if (status !== undefined) {
       if (!STATUSES.includes(status)) return res.status(400).json({ error: `status must be one of ${STATUSES.join(', ')}` });
       if (status !== j.status) setStatus(j.id, status);
     }
     if (typeof notes === 'string') setNotes(j.id, notes);
+    if (title !== undefined || company !== undefined) setJobNames(j.id, title?.trim() ?? j.title, company?.trim() ?? j.company, scoreJob);
     const updated = getJob(j.id)!;
     res.json({ ...updated, events: jobEvents(j.id), emailDraft: draftEmail(updated) ?? null });
+  });
+
+  app.delete('/api/jobs/:id', (req, res) => {
+    const j = jobOr404(req, res);
+    if (!j) return;
+    deleteJob(j.id);
+    res.json({ ok: true });
   });
 
   app.post('/api/jobs', async (req, res, next) => {
