@@ -11,7 +11,7 @@ export interface TailoredCv {
   variant: Variant;
   headline: string;
   summary: string;
-  /** Matched job skills, most-mentioned first, shown as one line under the summary. */
+  /** Matched job skills, most-mentioned first. Used by the application email, not printed on the CV. */
   coreStack: string[];
   basics: Profile['basics'];
   sections: Section[];
@@ -130,12 +130,15 @@ export function tailor(job: JobInput, forceVariant?: Variant): TailoredCv {
 
   let lines = p.skills.filter((s) => s.tags.includes(v));
   if (!lines.length) lines = p.skills.filter((s) => s.tags.some((t) => RELATED[v].includes(t)));
-  const skills = lines.map((line) => {
-    const hit = (item: string) => [...detectSkills(item, false)].reduce((n, s) => n + (jobFreq.get(s) ?? 0), 0);
-    // Stable sort: job-relevant items first, original order otherwise.
-    const items = line.items.map((item, i) => ({ item, i, h: hit(item) })).sort((a, b) => (b.h > 0 ? 1 : 0) - (a.h > 0 ? 1 : 0) || a.i - b.i).map((x) => x.item);
-    return { label: line.label, items };
-  });
+  const hit = (item: string) => [...detectSkills(item, false)].reduce((n, s) => n + (jobFreq.get(s) ?? 0), 0);
+  // Stable sorts: most-mentioned in the job first, profile order otherwise. Applies to lines and their items.
+  const skills = lines
+    .map((line) => ({ line, h: line.items.reduce((n, item) => n + hit(item), 0) }))
+    .sort((a, b) => b.h - a.h)
+    .map(({ line }) => {
+      const items = line.items.map((item) => ({ item, h: hit(item) })).sort((a, b) => b.h - a.h).map((x) => x.item);
+      return { label: line.label, items };
+    });
 
   const jobSkills = [...jobFreq.keys()];
   const matched = jobSkills.filter((s) => mine.has(s));
@@ -161,10 +164,7 @@ export function tailor(job: JobInput, forceVariant?: Variant): TailoredCv {
   return addToSkills(cv, uncovered(cv, cvText(cv)));
 }
 
-/**
- * The CV's content as plain text, for keyword checks before rendering. Leaves out the
- * core-stack line, so every skill named there is also backed by a bullet or skills entry.
- */
+/** The CV's content as plain text, for keyword checks before rendering. */
 function cvText(cv: TailoredCv): string {
   return [
     cv.headline,

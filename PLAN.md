@@ -115,7 +115,7 @@ src/
 - Headline uses a fixed list of standard titles (e.g. "Platform Engineer", "React Developer"), never the raw job title. An early test copied "Tech Full-Stack Rails Engineer", which is why.
 - Tested on 4 real postings (DevOps, React full-stack, frontend, Rails tech-lead): all single page.
 - **Keyword guarantee:** every job skill you have appears on the CV. If its bullet was cut (by selection or by the one-page fitter), your own wording of it is added to an "Additional" skills line and the CV is re-rendered.
-- **Core stack line** under the summary: up to 8 matched skills, most-mentioned in the job first.
+- **Technical Skills ordering:** skill lines and the items inside them are sorted by how often the job mentions them, so the section leads with what the job asks for. There is no separate core stack line on the CV.
 - **ATS report:** "covers 15 of 16 job keywords (94%). Missing: Microservices (not in your profile)." Measured on the final PDF text.
 - Hyphenated words no longer break across lines; project links read "GitHub"/"npm" (no arrows); "Engineering practices" skill line restored.
 

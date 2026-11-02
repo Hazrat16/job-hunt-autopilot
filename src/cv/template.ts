@@ -111,7 +111,6 @@ li{margin:0 0 calc(1.5px * var(--sp))}
 .company{font-weight:700;margin-top:calc(2px * var(--sp))}
 .meta,.degree{font-style:italic}
 .nb{white-space:nowrap}
-.core{margin-top:calc(2px * var(--sp))}
 </style></head>
 <body><div class="page">
 <header>
@@ -119,7 +118,7 @@ li{margin:0 0 calc(1.5px * var(--sp))}
   <div class="headline">${e(cv.headline)}</div>
   <div class="contact">${contact}</div>
 </header>
-<section><h2>Summary</h2><p>${t(cv.summary)}</p>${cv.coreStack.length ? `<p class="core"><b>Core stack for this role:</b> ${t(cv.coreStack.join(', '))}.</p>` : ''}</section>
+<section><h2>Summary</h2><p>${t(cv.summary)}</p></section>
 ${cv.sections.map((s) => section(cv, s)).join('\n')}
 </div>
 ${opts.fitLimitPx ? fitScript(opts.fitLimitPx) : ''}
