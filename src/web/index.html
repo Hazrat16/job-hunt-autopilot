@@ -124,7 +124,7 @@
   <main id="pipelineView" class="pipeline-view" hidden>
     <div class="board-head">
       <h1>My applications</h1>
-      <p>Drag a card to another column to update it. Click a card to open the job.</p>
+      <p>Drag a card to another column to update it. Click a card to see its details.</p>
     </div>
     <div class="board" id="board"></div>
   </main>
@@ -156,6 +156,8 @@
       </div>
     </form>
   </dialog>
+
+  <dialog id="jobPopup" aria-label="Job details"></dialog>
 
   <dialog id="confirmDialog" aria-labelledby="confirmTitle" aria-describedby="confirmText">
     <form method="dialog">

@@ -553,11 +553,13 @@ async function setJobStatus(id, status) {
 
 async function loadBoard() {
   const jobs = await api(`/api/jobs?status=${BOARD.map((b) => b.status).join(',')}&limit=1000`);
+  // Each column scrolls on its own; keep its place when the board redraws.
+  const scrolled = Object.fromEntries([...document.querySelectorAll('.column')].map((c) => [c.dataset.status, $('.col-body', c).scrollTop]));
   $('#board').innerHTML = BOARD.map(({ status, label, color }) => {
     const col = jobs.filter((j) => j.status === status).sort((a, b) => (b.status_at ?? '').localeCompare(a.status_at ?? ''));
     return `<div class="column" data-status="${status}">
       <h3><span class="dot" style="--c:${color}"></span>${label}<span class="n">${col.length}</span></h3>
-      ${col.length
+      <div class="col-body">${col.length
         ? col.map((j) => `<div class="bcard" draggable="true" data-id="${j.id}">
             ${mono(j.company, 'sm')}
             <div class="body">
@@ -565,9 +567,63 @@ async function loadBoard() {
               <div class="sub">${esc(j.company)} · ${ago(j.status_at)}</div>
             </div>
           </div>`).join('')
-        : '<div class="col-empty">Drag jobs here</div>'}
+        : '<div class="col-empty">Drag jobs here</div>'}</div>
     </div>`;
   }).join('');
+  document.querySelectorAll('.column').forEach((c) => ($('.col-body', c).scrollTop = scrolled[c.dataset.status] ?? 0));
+}
+
+function jobPopup(j) {
+  const e = ELIG[j.eligibility];
+  const link = j.apply_url || j.url;
+  const desc = j.description || '';
+  return `<div class="dialog-head">
+      ${mono(j.company)}
+      <div>
+        <h2>${esc(j.title)}</h2>
+        <p class="hint">${esc(j.company)}${j.location ? ` · ${esc(j.location)}` : ''}</p>
+      </div>
+      ${ring(j.score)}
+      <button class="btn icon-btn ghost" data-close aria-label="Close">${icon('x')}</button>
+    </div>
+    <div class="popup-body">
+      <div class="facts">
+        <span class="pill ${j.status}">${esc(BOARD.find((b) => b.status === j.status)?.label ?? j.status)}${j.status_at ? ` ${ago(j.status_at)}` : ''}</span>
+        <span class="fact ${e.tone}">${icon(e.icon)}${e.label}</span>
+        ${j.work_type !== 'unknown' ? `<span class="fact">${icon(WORK[j.work_type].icon)}${WORK[j.work_type].label}</span>` : ''}
+        ${j.salary ? `<span class="fact">${icon('money')}${esc(j.salary)}</span>` : ''}
+      </div>
+      <dl class="match-grid">
+        <dt>You have</dt>
+        <dd class="skills">${j.matched.map((s) => `<span class="skill have">${icon('check')}${esc(s)}</span>`).join('') || '<span class="muted">No known skills found in the post.</span>'}</dd>
+        <dt>Missing</dt>
+        <dd class="skills">${j.missing.map((s) => `<span class="skill miss">${icon('x')}${esc(s)}</span>`).join('') || '<span class="muted">Nothing. You cover every skill it mentions.</span>'}</dd>
+        ${j.notes ? `<dt>Notes</dt><dd class="popup-notes">${esc(j.notes)}</dd>` : ''}
+        ${j.events.length ? `<dt>History</dt><dd><ul class="timeline">${j.events.map((ev) => `<li><b>${ev.status}</b>${fmtDate(ev.at)}</li>`).join('')}</ul></dd>` : ''}
+      </dl>
+      <div>
+        <h3>Job description</h3>
+        ${desc ? `<div class="desc">${esc(desc)}</div>` : '<p class="muted">The source didn\'t include a description. Use "Open job" to read it there.</p>'}
+      </div>
+    </div>
+    <div class="dialog-actions">
+      ${link ? `<a class="btn" href="${esc(link)}" target="_blank" rel="noopener">Open job${icon('external')}</a>` : ''}
+      <button class="btn primary" data-details="${j.id}">See more details</button>
+    </div>`;
+}
+
+let popupReq = 0;
+async function openJobPopup(id) {
+  const req = ++popupReq;
+  try {
+    const j = await api(`/api/jobs/${id}`);
+    if (req !== popupReq) return; // another card was clicked first
+    const d = $('#jobPopup');
+    d.innerHTML = jobPopup(j);
+    if (!d.open) d.showModal();
+  } catch (err) {
+    toast(`Couldn't open the job: ${err.message}`, { error: true });
+  }
 }
 
 function showView(view) {
@@ -741,7 +797,7 @@ $('#detail').addEventListener('focusout', async (e) => {
 
 document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => showView(t.dataset.view)));
 
-// Pipeline: drag cards between columns, click to open.
+// Pipeline: drag cards between columns, click for a quick look.
 const board = $('#board');
 board.addEventListener('dragstart', (e) => {
   const card = e.target.closest('.bcard');
@@ -771,9 +827,16 @@ board.addEventListener('drop', async (e) => {
 });
 board.addEventListener('click', (e) => {
   const card = e.target.closest('.bcard');
-  if (!card) return;
-  showView('jobs');
-  selectJob(Number(card.dataset.id));
+  if (card) openJobPopup(Number(card.dataset.id));
+});
+$('#jobPopup').addEventListener('click', (e) => {
+  const d = e.currentTarget;
+  const more = e.target.closest('[data-details]');
+  if (more) {
+    d.close();
+    showView('jobs');
+    selectJob(Number(more.dataset.details));
+  } else if (e.target === d || e.target.closest('[data-close]')) d.close(); // the dialog itself is only hit on its backdrop
 });
 
 // Add job
