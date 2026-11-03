@@ -44,6 +44,9 @@ const state = {
   work: new Set(Object.keys(WORK)),
   view: 'jobs',
   cvOpen: false,
+  cvVariant: '', // the CV version picked for the selected job ('' = suggested)
+  cvData: null, // the selected job's CV text and whether you edited it (GET /api/jobs/:id/cv)
+  cvEditing: false,
   emailDraft: null, // the open email draft for the selected job, including your edits
   lastVisit: null,
 };
@@ -254,7 +257,7 @@ function renderList() {
 async function selectJob(id, { scroll = false } = {}) {
   if (!id) return;
   if (state.selected?.id !== id) {
-    state.cvOpen = false;
+    Object.assign(state, { cvOpen: false, cvVariant: '', cvData: null, cvEditing: false });
     state.emailDraft = null;
   }
   state.selected = await api(`/api/jobs/${id}`);
@@ -320,6 +323,9 @@ function renderDetail() {
   const link = j.apply_url || j.url;
   const m = state.meta;
   const desc = j.description || '';
+  // Keep unsaved CV edits when the page redraws (e.g. after a status change).
+  const cvForm = $('#cvEditForm');
+  if (cvForm && state.cvEditing) state.cvData = { ...state.cvData, cv: cvEditValues(cvForm) };
   $('#detail').innerHTML = `<div class="detail-inner">
     <div class="hero">
       ${mono(j.company, 'lg')}
@@ -414,9 +420,10 @@ function mailParts() {
 
 function variantSelect() {
   const j = state.selected;
+  const opt = (v, label) => `<option value="${v}"${state.cvVariant === v ? ' selected' : ''}>${esc(label)}</option>`;
   return `<select id="variant" title="Which version of your CV to start from" aria-label="CV version">
-    <option value="">${esc(VARIANT_NAME[j.variant] ?? j.variant)} CV (suggested)</option>
-    ${state.meta.variants.filter((v) => v !== j.variant).map((v) => `<option value="${v}">${esc(VARIANT_NAME[v] ?? v)} CV</option>`).join('')}
+    ${opt('', `${VARIANT_NAME[j.variant] ?? j.variant} CV (suggested)`)}
+    ${state.meta.variants.filter((v) => v !== j.variant).map((v) => opt(v, `${VARIANT_NAME[v] ?? v} CV`)).join('')}
   </select>`;
 }
 
@@ -428,18 +435,151 @@ function cvCard() {
       <div class="row">${variantSelect()}<button class="btn primary" id="makeCv">${icon('file')}Create tailored CV</button></div>
     </div>`;
   }
+  if (state.cvEditing && state.cvData) return `${head}${cvEditForm(state.cvData)}`;
   return `${head}
     <div class="cv-bar">
       ${variantSelect()}
       <button class="btn primary" id="pdfBtn">${icon('download')}Download PDF</button>
-      <span class="ats" id="ats">Preview. The PDF is made by Chrome and checked for job keywords.</span>
+      <button class="btn" id="editCv">${icon('pencil')}Edit text</button>
+      <span id="cvStatus">${cvStatus()}</span>
+      <span class="ats" id="ats">${atsHint()}</span>
     </div>
     <div class="cv-frame-wrap" id="cvWrap"><iframe id="cvFrame" title="CV preview"></iframe></div>`;
 }
 
+const cvStatus = () => (state.cvData?.edited ? `<span class="pill edited" title="Saved ${esc(fmtDate(state.cvData.savedAt))}">Edited by you</span>` : '');
+const atsHint = () =>
+  state.cvData?.edited
+    ? 'Preview with your text. The PDF uses it too, and skills are no longer added for you.'
+    : 'Preview. The PDF is made by Chrome and checked for job keywords.';
+
+// ---------- CV editor ----------
+
+// Skill items are comma-separated; commas inside brackets ("AWS (ECS, EC2)") stay in the item.
+const splitItems = (s) => s.split(/,(?![^(]*\))/).map((x) => x.trim()).filter(Boolean);
+const lines = (s) => s.split('\n').map((x) => x.trim()).filter(Boolean);
+const removeBtn = (what) => `<button type="button" class="btn icon-btn ghost" data-remove title="Remove ${what}" aria-label="Remove ${what}">${icon('trash')}</button>`;
+
+const expFields = (x) => `<div class="cv-item" data-kind="exp">
+    <div class="cv-cols">
+      <label class="field"><span>Company</span><input name="company" value="${esc(x.company)}"></label>
+      <label class="field"><span>Role</span><input name="role" value="${esc(x.role)}"></label>
+    </div>
+    <div class="cv-cols">
+      <label class="field"><span>Dates</span><input name="dates" value="${esc(x.dates)}"></label>
+      <label class="field"><span>Location</span><input name="location" value="${esc(x.location)}"></label>
+    </div>
+    ${x.subRoles !== undefined ? `<label class="field"><span>Roles held</span><input name="subRoles" value="${esc(x.subRoles)}"></label>` : ''}
+    <label class="field"><span>Bullets, one per line (a role with none is left off)</span><textarea name="bullets" rows="${Math.max(3, x.bullets.length + 1)}">${esc(x.bullets.join('\n'))}</textarea></label>
+  </div>`;
+
+const projectFields = (p) => `<div class="cv-item" data-kind="project">
+    <div class="cv-cols">
+      <label class="field"><span>Title</span><input name="title" value="${esc(p.title)}"></label>
+      <label class="field"><span>Link (optional)</span><input name="url" type="url" value="${esc(p.url ?? '')}" placeholder="https://github.com/…"></label>
+      ${removeBtn('project')}
+    </div>
+    <label class="field"><span>Description</span><textarea name="text" rows="3">${esc(p.text)}</textarea></label>
+  </div>`;
+
+const skillFields = (l) => `<div class="cv-item cv-cols" data-kind="skill">
+    <label class="field label"><span>Label</span><input name="label" value="${esc(l.label)}"></label>
+    <label class="field"><span>Skills, comma-separated</span><input name="items" value="${esc(l.items.join(', '))}"></label>
+    ${removeBtn('skill line')}
+  </div>`;
+
+const eduFields = (ed) => `<div class="cv-item cv-cols" data-kind="edu">
+    <label class="field"><span>School</span><input name="school" value="${esc(ed.school)}"></label>
+    <label class="field"><span>Degree</span><input name="degree" value="${esc(ed.degree)}"></label>
+    <label class="field label"><span>Dates</span><input name="dates" value="${esc(ed.dates ?? '')}"></label>
+  </div>`;
+
+function cvEditForm(d) {
+  const c = d.cv;
+  const block = {
+    ai_practice: () => `<fieldset><legend>AI-assisted development</legend>
+      <label class="field"><span>One point per line</span><textarea name="aiPractice" rows="4">${esc(c.aiPractice.join('\n'))}</textarea></label></fieldset>`,
+    experience: () => `<fieldset><legend>Work experience</legend>${c.experience.map(expFields).join('')}</fieldset>`,
+    projects: () => `<fieldset><legend>Projects</legend><div class="cv-list" id="cvProjects">${c.projects.map(projectFields).join('')}</div>
+      <select id="addProject" aria-label="Add a project">
+        <option value="">Add a project…</option>
+        <option value="blank">Blank project</option>
+        ${d.projectOptions.map((p, i) => `<option value="${i}">${esc(p.title)}</option>`).join('')}
+      </select></fieldset>`,
+    skills: () => `<fieldset><legend>Technical skills</legend><div class="cv-list" id="cvSkills">${c.skills.map(skillFields).join('')}</div>
+      <button type="button" class="btn ghost" id="addSkill">${icon('plus')}Add skill line</button></fieldset>`,
+    education: () => `<fieldset><legend>Education</legend>${c.education.map(eduFields).join('')}</fieldset>`,
+  };
+  return `<form class="cv-edit" id="cvEditForm">
+    <p class="muted">Editing the ${esc(VARIANT_NAME[d.variant] ?? d.variant)} CV for this job only. Your profile stays as it is.</p>
+    <fieldset><legend>Header</legend>
+      <label class="field"><span>Headline</span><input name="headline" value="${esc(c.headline)}" required></label>
+      <label class="field"><span>Summary</span><textarea name="summary" rows="4" required>${esc(c.summary)}</textarea></label>
+    </fieldset>
+    ${d.sections.map((s) => block[s]?.() ?? '').join('')}
+    <div class="cv-edit-actions">
+      <button class="btn primary">${icon('check')}Save changes</button>
+      <button type="button" class="btn ghost" id="cancelCvEdit">Cancel</button>
+      ${d.edited ? `<span class="spacer"></span><button type="button" class="btn ghost" id="resetCv">${icon('undo')}Reset to generated</button>` : ''}
+    </div>
+  </form>`;
+}
+
+/** Reads the editor back into the shape the API takes. */
+function cvEditValues(form) {
+  const val = (el, name) => $(`[name="${name}"]`, el)?.value.trim() ?? '';
+  const items = (kind) => [...form.querySelectorAll(`[data-kind="${kind}"]`)];
+  const sub = (el) => $('[name="subRoles"]', el);
+  return {
+    headline: val(form, 'headline'),
+    summary: val(form, 'summary'),
+    aiPractice: lines(val(form, 'aiPractice')),
+    experience: items('exp').map((el) => ({
+      company: val(el, 'company'), role: val(el, 'role'), dates: val(el, 'dates'), location: val(el, 'location'),
+      subRoles: sub(el) ? val(el, 'subRoles') : undefined, bullets: lines(val(el, 'bullets')),
+    })),
+    projects: items('project').map((el) => ({ title: val(el, 'title'), url: val(el, 'url'), text: val(el, 'text') })),
+    skills: items('skill').map((el) => ({ label: val(el, 'label'), items: splitItems(val(el, 'items')) })),
+    education: items('edu').map((el) => ({ school: val(el, 'school'), degree: val(el, 'degree'), dates: val(el, 'dates') })),
+  };
+}
+
+function showCvCard() {
+  $('#cvCard').innerHTML = cvCard();
+  if (!state.cvEditing) loadPreview();
+}
+
+async function editCv(btn) {
+  btn.disabled = true;
+  try {
+    state.cvData = await api(`/api/jobs/${state.selected.id}/cv${cvParams()}`);
+    state.cvEditing = true;
+    showCvCard();
+    $('#cvEditForm [name="headline"]').focus();
+  } catch (err) {
+    toast(`Couldn't open the editor: ${err.message}`, { error: true });
+    btn.disabled = false;
+  }
+}
+
+async function saveCv(form, method) {
+  const id = state.selected.id;
+  form.querySelectorAll('button').forEach((b) => (b.disabled = true));
+  try {
+    const data = await api(`/api/jobs/${id}/cv${cvParams()}`, { method, body: method === 'PUT' ? cvEditValues(form) : undefined });
+    if (state.selected?.id !== id) return;
+    state.cvData = data;
+    state.cvEditing = false;
+    showCvCard();
+    toast(method === 'PUT' ? 'CV saved. The preview and PDF now use your text' : 'Back to the generated CV');
+  } catch (err) {
+    toast(`Couldn't save: ${err.message}`, { error: true });
+    if (form.isConnected) form.querySelectorAll('button').forEach((b) => (b.disabled = false));
+  }
+}
+
 function cvParams() {
-  const v = $('#variant')?.value;
-  return v ? `?variant=${v}` : '';
+  return state.cvVariant ? `?variant=${state.cvVariant}` : '';
 }
 
 function loadPreview() {
@@ -447,6 +587,17 @@ function loadPreview() {
   if (!frame) return;
   frame.src = `/api/jobs/${state.selected.id}/cv/preview${cvParams()}`;
   fitFrame();
+  // Whether this version has your edits; the bar shows it.
+  const id = state.selected.id;
+  const v = state.cvVariant;
+  api(`/api/jobs/${id}/cv${cvParams()}`)
+    .then((d) => {
+      if (state.selected?.id !== id || state.cvVariant !== v) return;
+      state.cvData = d;
+      if ($('#cvStatus')) $('#cvStatus').innerHTML = cvStatus();
+      if ($('#ats') && !$('#ats').classList.contains('ok')) $('#ats').textContent = atsHint();
+    })
+    .catch(() => {});
 }
 
 // Scale the A4-sized iframe to the card width.
@@ -753,19 +904,44 @@ $('#detail').addEventListener('click', async (e) => {
   }
   if (id === 'makeCv') {
     state.cvOpen = true;
-    const v = $('#variant').value;
-    $('#cvCard').innerHTML = cvCard();
-    $('#variant').value = v;
-    loadPreview();
+    showCvCard();
   }
   if (id === 'pdfBtn') downloadPdf(e.target.closest('button'));
+  if (id === 'editCv') editCv(e.target.closest('button'));
+  if (id === 'cancelCvEdit') {
+    state.cvEditing = false;
+    showCvCard();
+  }
+  if (id === 'resetCv') {
+    const ok = await confirmDialog({
+      title: 'Reset this CV?',
+      text: 'Your edits for this CV version are deleted and the generated text comes back. This can\'t be undone.',
+      action: 'Reset CV',
+    });
+    if (ok && $('#cvEditForm')) saveCv($('#cvEditForm'), 'DELETE');
+  }
+  if (id === 'addSkill') {
+    $('#cvSkills').insertAdjacentHTML('beforeend', skillFields({ label: '', items: [] }));
+    $('#cvSkills').lastElementChild.querySelector('input').focus();
+  }
+  if (e.target.closest('[data-remove]')) e.target.closest('.cv-item').remove();
   if (id === 'unfold') {
     $('#desc').classList.remove('folded');
     e.target.closest('button').remove();
   }
 });
 $('#detail').addEventListener('change', async (e) => {
-  if (e.target.id === 'variant' && state.cvOpen) loadPreview();
+  if (e.target.id === 'variant') {
+    state.cvVariant = e.target.value;
+    state.cvData = null;
+    if (state.cvOpen) showCvCard();
+  }
+  if (e.target.id === 'addProject' && e.target.value) {
+    const p = e.target.value === 'blank' ? { title: '', text: '' } : state.cvData.projectOptions[e.target.value];
+    $('#cvProjects').insertAdjacentHTML('beforeend', projectFields(p));
+    $('#cvProjects').lastElementChild.querySelector('input').focus();
+    e.target.value = '';
+  }
   if (e.target.id === 'statusSelect' && e.target.value) {
     await setJobStatus(state.selected.id, e.target.value);
     renderDetail();
@@ -781,6 +957,10 @@ $('#detail').addEventListener('input', (e) => {
   }
 });
 $('#detail').addEventListener('submit', (e) => {
+  if (e.target.id === 'cvEditForm') {
+    e.preventDefault();
+    return saveCv(e.target, 'PUT');
+  }
   if (e.target.id !== 'jobEdit') return;
   e.preventDefault();
   saveJobNames(e.target);

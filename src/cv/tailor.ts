@@ -1,11 +1,14 @@
 // Builds a job-specific CV from the master profile. Purely selective: it chooses and orders
-// your own bullets/projects/skills and never writes new claims.
+// your own bullets/projects/skills and never writes new claims. Text you edit in the dashboard
+// is saved per job and replaces the generated text.
 import { config, type Variant } from '../config.ts';
+import { getCvEdit } from '../db.ts';
 import { loadProfile, profileSkills, type Profile, type Section } from '../profile.ts';
 import { detectSkills, skillFrequency, skillMention } from '../skills.ts';
 import { detectVariant } from '../match.ts';
 
-export interface JobInput { title: string; company?: string; description: string }
+/** With an id (a stored job), your saved edits for that job are applied. */
+export interface JobInput { id?: number; title: string; company?: string; description: string }
 
 export interface TailoredCv {
   variant: Variant;
@@ -21,7 +24,15 @@ export interface TailoredCv {
   skills: { label: string; items: string[] }[];
   education: Profile['education'];
   report: { jobSkills: string[]; matched: string[]; missing: string[] };
+  /** Your saved text replaced the generated text, so no skills are added for you. */
+  edited: boolean;
 }
+
+/** The CV text you can edit for a job. Bullets and projects keep your order. */
+export type CvEdit = Pick<TailoredCv, 'headline' | 'summary' | 'aiPractice' | 'skills' | 'education'> & {
+  experience: (Omit<TailoredCv['experience'][number], 'bullets'> & { bullets: string[] })[];
+  projects: Omit<TailoredCv['projects'][number], 'score'>[];
+};
 
 const RELATED: Record<Variant, Variant[]> = {
   fullstack: ['ai', 'backend', 'frontend'],
@@ -81,7 +92,7 @@ function headlineFor(job: JobInput, v: Variant, fallback: string): string {
   return HEADLINES[v].find(([re]) => re.test(job.title))?.[1] ?? fallback;
 }
 
-export function tailor(job: JobInput, forceVariant?: Variant): TailoredCv {
+export function tailor(job: JobInput, forceVariant?: Variant, { edits = true } = {}): TailoredCv {
   const p = loadProfile();
   const v = forceVariant ?? detectVariant(job.title, job.description);
   const spec = p.variants[v];
@@ -159,9 +170,45 @@ export function tailor(job: JobInput, forceVariant?: Variant): TailoredCv {
       matched,
       missing: jobSkills.filter((s) => !mine.has(s)),
     },
+    edited: false,
   };
+  const saved = edits && job.id !== undefined ? getCvEdit(job.id, v) : undefined;
+  if (saved) return applyEdit(cv, saved.edit);
   // Keyword guarantee: a matched skill whose bullets didn't make the cut is listed under skills instead.
   return addToSkills(cv, uncovered(cv, cvText(cv)));
+}
+
+/** The CV with your text in place of the generated text. If it overflows a page, the last bullets and projects go first. */
+function applyEdit(cv: TailoredCv, e: CvEdit): TailoredCv {
+  const rank = (i: number) => 100 - i;
+  return {
+    ...cv,
+    ...e,
+    experience: e.experience.map((x) => ({ ...x, bullets: x.bullets.map((text, i) => ({ text, score: rank(i) })) })),
+    projects: e.projects.map((p, i) => ({ ...p, score: rank(i) })),
+    edited: true,
+  };
+}
+
+/** The editable text of a CV. */
+export function toEdit(cv: TailoredCv): CvEdit {
+  return {
+    headline: cv.headline,
+    summary: cv.summary,
+    aiPractice: cv.aiPractice,
+    experience: cv.experience.map(({ bullets, ...x }) => ({ ...x, bullets: bullets.map((b) => b.text) })),
+    projects: cv.projects.map(({ score, ...p }) => p),
+    skills: cv.skills,
+    education: cv.education,
+  };
+}
+
+/** Every profile project in its best wording for this variant, to add to an edited CV. */
+export function projectOptions(v: Variant): CvEdit['projects'] {
+  return loadProfile().projects.map((proj) => {
+    const d = [...proj.descriptions].sort((a, b) => tagScore(b.tags, v) - tagScore(a.tags, v))[0];
+    return { title: d.title, url: proj.url, text: d.text };
+  });
 }
 
 /** The CV's content as plain text, for keyword checks before rendering. */

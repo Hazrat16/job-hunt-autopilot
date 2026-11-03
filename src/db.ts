@@ -5,6 +5,7 @@ import { DATA_DIR, type Variant } from './config.ts';
 import type { Eligibility } from './eligibility.ts';
 import type { JobScore, ScoreInput } from './match.ts';
 import type { RawJob } from './sources/types.ts';
+import type { CvEdit } from './cv/tailor.ts';
 import { WORK_TYPE_RULES, workType, type WorkType } from './work-type.ts';
 
 export type Status = 'new' | 'saved' | 'applied' | 'interview' | 'offer' | 'rejected' | 'skipped';
@@ -89,6 +90,14 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS ignored_sources (source TEXT NOT NULL, source_id TEXT NOT NULL, reason TEXT NOT NULL, PRIMARY KEY (source, source_id));
   CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS job_events (job_id INTEGER NOT NULL REFERENCES jobs(id), status TEXT NOT NULL, at TEXT NOT NULL);
+  -- Your own wording for a job's tailored CV, one per CV version (variant).
+  CREATE TABLE IF NOT EXISTS cv_edits (
+    job_id INTEGER NOT NULL REFERENCES jobs(id),
+    variant TEXT NOT NULL,
+    data TEXT NOT NULL,
+    saved_at TEXT NOT NULL,
+    PRIMARY KEY (job_id, variant)
+  );
 `);
 
 // Columns added after the first release.
@@ -268,6 +277,7 @@ export function deleteJob(id: number): void {
   db.prepare("INSERT OR REPLACE INTO ignored_sources (source, source_id, reason) SELECT source, source_id, 'deleted' FROM job_sources WHERE job_id = ?").run(id);
   db.prepare('DELETE FROM job_sources WHERE job_id = ?').run(id);
   db.prepare('DELETE FROM job_events WHERE job_id = ?').run(id);
+  db.prepare('DELETE FROM cv_edits WHERE job_id = ?').run(id);
   db.prepare('DELETE FROM jobs WHERE id = ?').run(id);
   db.exec('COMMIT');
 }
@@ -347,6 +357,21 @@ export function setJobNames(id: number, title: string, company: string, score: (
   db.prepare('UPDATE jobs SET title = ?, company = ?, score = ?, variant = ?, eligibility = ?, eligibility_reason = ?, matched = ?, missing = ?, seniority = ? WHERE id = ?').run(
     title, company, s.score, s.variant, s.eligibility, s.eligibilityReason, JSON.stringify(s.matched), JSON.stringify(s.missing), s.seniority, id,
   );
+}
+
+export function getCvEdit(jobId: number, variant: Variant): { edit: CvEdit; savedAt: string } | undefined {
+  const row = db.prepare('SELECT data, saved_at FROM cv_edits WHERE job_id = ? AND variant = ?').get(jobId, variant) as { data: string; saved_at: string } | undefined;
+  return row && { edit: JSON.parse(row.data), savedAt: row.saved_at };
+}
+
+export function saveCvEdit(jobId: number, variant: Variant, edit: CvEdit): void {
+  db.prepare(
+    'INSERT INTO cv_edits (job_id, variant, data, saved_at) VALUES (?, ?, ?, ?) ON CONFLICT(job_id, variant) DO UPDATE SET data = excluded.data, saved_at = excluded.saved_at',
+  ).run(jobId, variant, JSON.stringify(edit), new Date().toISOString());
+}
+
+export function deleteCvEdit(jobId: number, variant: Variant): void {
+  db.prepare('DELETE FROM cv_edits WHERE job_id = ? AND variant = ?').run(jobId, variant);
 }
 
 /** Status changes for a job, oldest first. */

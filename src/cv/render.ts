@@ -75,7 +75,8 @@ export function renderCvQueued(...args: Parameters<typeof renderCv>): Promise<Re
 
 /**
  * Renders the CV, then checks the final text: if fitting dropped the only bullet that named a
- * matched skill, that skill is added to the skills section and the CV is rendered again.
+ * matched skill, that skill is added to the skills section and the CV is rendered again
+ * (not for an edited CV: its skills are yours to choose).
  */
 export async function renderCv(cv: TailoredCv, outDir: string, paper: Paper = config.cv.paper): Promise<RenderResult> {
   for (let i = 0; ; i++) {
@@ -84,7 +85,7 @@ export async function renderCv(cv: TailoredCv, outDir: string, paper: Paper = co
     const $ = cheerio.load(html);
     const text = $('.page').text();
     const lost = uncovered(cv, ($('.core').remove(), $('.page').text()));
-    if (!lost.length || i === 2) return { ...r, coverage: keywordCoverage(cv, text) };
+    if (cv.edited || !lost.length || i === 2) return { ...r, coverage: keywordCoverage(cv, text) };
     cv = addToSkills(cv, lost);
   }
 }

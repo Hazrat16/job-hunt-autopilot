@@ -311,6 +311,25 @@ input[type=range] { accent-color: var(--accent); width: 100%; }
 .ats.ok { color: var(--good); }
 .cv-frame-wrap { position: relative; overflow: hidden; border-radius: var(--r-sm); background: #fff; box-shadow: var(--shadow-lg); }
 .cv-frame-wrap iframe { border: 0; width: 794px; height: 1123px; transform-origin: 0 0; display: block; }
+.pill.edited { background: var(--accent-soft); color: var(--accent); text-transform: none; }
+
+/* CV editor */
+.cv-edit { display: flex; flex-direction: column; gap: 14px; }
+.cv-edit > .muted { margin: 0; }
+.cv-edit fieldset { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 14px; border: 1px solid var(--border); border-radius: var(--r); }
+.cv-edit legend { padding: 0 6px; font-size: 13px; font-weight: 600; }
+.cv-edit input, .cv-edit textarea { width: 100%; }
+.cv-edit input { height: 34px; padding: 0 10px; }
+.cv-edit textarea { padding: 8px 10px; resize: vertical; line-height: 1.5; }
+.cv-edit fieldset > select { align-self: flex-start; }
+.cv-list { display: flex; flex-direction: column; gap: 10px; }
+.cv-item { display: flex; flex-direction: column; gap: 8px; }
+.cv-item + .cv-item { padding-top: 10px; border-top: 1px dashed var(--border); }
+.cv-cols { display: flex; gap: 8px; align-items: flex-end; flex-direction: row; }
+.cv-cols .field.label { flex: 0 0 170px; }
+.cv-edit-actions { position: sticky; bottom: 0; display: flex; gap: 8px; padding: 12px 0 2px; background: var(--surface); }
+.cv-edit-actions .spacer { flex: 1; }
+@media (max-width: 640px) { .cv-cols { flex-wrap: wrap; } .cv-cols .field, .cv-cols .field.label { flex: 1 1 100%; } }
 
 textarea.notes { width: 100%; padding: 12px; resize: vertical; min-height: 84px; line-height: 1.55; }
 .timeline { position: relative; margin: 16px 0 0; padding: 0 0 0 18px; list-style: none; display: flex; flex-direction: column; gap: 8px; }

@@ -4,13 +4,14 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import path from 'node:path';
 import { config, env, VARIANTS, type Variant } from './config.ts';
 import { cvFileName, cvFolder, FONT_DIR, fitLimitPx, renderCvQueued } from './cv/render.ts';
-import { formatCoverage, tailor } from './cv/tailor.ts';
+import { formatCoverage, projectOptions, tailor, toEdit, type CvEdit } from './cv/tailor.ts';
 import { renderHtml } from './cv/template.ts';
 import {
-  deleteJob, getJob, getKv, jobEvents, listJobs, setJobNames, setNotes, setStatus, sourceCounts, stats, type JobRow, type Status,
+  deleteCvEdit, deleteJob, getCvEdit, getJob, getKv, jobEvents, listJobs, saveCvEdit, setJobNames, setNotes, setStatus, sourceCounts, stats,
+  type JobRow, type Status,
 } from './db.ts';
 import type { Eligibility } from './eligibility.ts';
-import { scoreJob } from './match.ts';
+import { detectVariant, scoreJob } from './match.ts';
 import type { WorkType } from './work-type.ts';
 import { addManualJob, fetchAllShared } from './pipeline.ts';
 import { detectEmailApply, draftEmail } from './apply-email.ts';
@@ -35,6 +36,39 @@ function jobOr404(req: Request, res: Response): JobRow | undefined {
 function variantParam(req: Request): Variant | undefined {
   const v = req.query.variant;
   return typeof v === 'string' && VARIANTS.includes(v as Variant) ? (v as Variant) : undefined;
+}
+
+/** The CV text being edited for a job, plus what the editor needs to show. */
+function cvEditor(j: JobRow, req: Request) {
+  const v = variantParam(req) ?? detectVariant(j.title, j.description);
+  const cv = tailor(j, v);
+  return { variant: v, edited: cv.edited, savedAt: getCvEdit(j.id, v)?.savedAt ?? null, sections: cv.sections, cv: toEdit(cv), projectOptions: projectOptions(v) };
+}
+
+const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+const arr = (v: unknown): any[] => (Array.isArray(v) ? v : []);
+
+/** The edited CV from a request, trimmed, without empty bullets, projects or skill lines; or what's wrong with it. */
+function cvEditBody(b: any): CvEdit | string {
+  const edit: CvEdit = {
+    headline: str(b?.headline),
+    summary: str(b?.summary),
+    aiPractice: arr(b?.aiPractice).map(str).filter(Boolean),
+    experience: arr(b?.experience)
+      .map((x) => ({
+        company: str(x?.company), role: str(x?.role), location: str(x?.location), dates: str(x?.dates),
+        subRoles: str(x?.subRoles) || undefined, bullets: arr(x?.bullets).map(str).filter(Boolean),
+      }))
+      .filter((x) => x.company),
+    projects: arr(b?.projects).map((p) => ({ title: str(p?.title), url: str(p?.url) || undefined, text: str(p?.text) })).filter((p) => p.title || p.text),
+    skills: arr(b?.skills).map((l) => ({ label: str(l?.label), items: arr(l?.items).map(str).filter(Boolean) })).filter((l) => l.items.length),
+    education: arr(b?.education).map((ed) => ({ school: str(ed?.school), degree: str(ed?.degree), dates: str(ed?.dates) || undefined })).filter((ed) => ed.school),
+  };
+  if (!edit.headline) return "Headline can't be empty";
+  if (!edit.summary) return "Summary can't be empty";
+  const bad = edit.projects.find((p) => p.url && !/^https?:\/\//i.test(p.url));
+  if (bad) return `The link for "${bad.title}" must start with http:// or https://`;
+  return edit;
 }
 
 export function createApp() {
@@ -118,6 +152,29 @@ export function createApp() {
   app.get('/api/jobs/:id/email', (req, res) => {
     const j = jobOr404(req, res);
     if (j) res.json(draftEmail(j, { always: true, variant: variantParam(req) }));
+  });
+
+  // Your own wording for a job's CV (per variant). Preview, PDF, email and Telegram all use it.
+  app.get('/api/jobs/:id/cv', (req, res) => {
+    const j = jobOr404(req, res);
+    if (j) res.json(cvEditor(j, req));
+  });
+
+  app.put('/api/jobs/:id/cv', (req, res) => {
+    const j = jobOr404(req, res);
+    if (!j) return;
+    const edit = cvEditBody(req.body);
+    if (typeof edit === 'string') return res.status(400).json({ error: edit });
+    saveCvEdit(j.id, variantParam(req) ?? detectVariant(j.title, j.description), edit);
+    res.json(cvEditor(j, req));
+  });
+
+  // Back to the generated CV.
+  app.delete('/api/jobs/:id/cv', (req, res) => {
+    const j = jobOr404(req, res);
+    if (!j) return;
+    deleteCvEdit(j.id, variantParam(req) ?? detectVariant(j.title, j.description));
+    res.json(cvEditor(j, req));
   });
 
   // Instant preview: the page fits itself to one page in your browser (no Chrome needed).
