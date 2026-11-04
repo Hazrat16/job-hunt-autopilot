@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import YAML from 'yaml';
-import { DATA_DIR, type Variant } from './config.ts';
+import { DATA_DIR, ROOT, type Variant } from './config.ts';
 import { detectSkills } from './skills.ts';
 
 export interface Bullet { group?: string; tags: Variant[]; text: string }
@@ -32,13 +32,24 @@ export interface Profile {
 }
 
 let cached: { profile: Profile; mtime: number; skills: Set<string> } | undefined;
-const FILE = path.join(DATA_DIR, 'profile.yaml');
+const FILE = process.env.PROFILE_PATH ? path.resolve(ROOT, process.env.PROFILE_PATH) : path.join(DATA_DIR, 'profile.yaml');
 
-/** Loads data/profile.yaml, re-reading it whenever the file changes. */
+/** Contact details kept in .env (never committed) override the ones in the profile file. */
+const ENV_BASICS = { name: 'PROFILE_NAME', email: 'PROFILE_EMAIL', phone: 'PROFILE_PHONE', location: 'PROFILE_LOCATION' } as const;
+
+/** Loads the profile (data/profile.yaml by default), re-reading it whenever the file changes. */
 export function loadProfile(): Profile {
+  if (!fs.existsSync(FILE)) {
+    throw new Error(`Profile not found at ${FILE}. Copy data/profile.example.yaml to data/profile.yaml and fill it in.`);
+  }
   const mtime = fs.statSync(FILE).mtimeMs;
   if (!cached || cached.mtime !== mtime) {
     const profile = YAML.parse(fs.readFileSync(FILE, 'utf8')) as Profile;
+    profile.basics ??= {} as Profile['basics'];
+    for (const [key, name] of Object.entries(ENV_BASICS) as [keyof typeof ENV_BASICS, string][]) {
+      const value = process.env[name]?.trim();
+      if (value) profile.basics[key] = value;
+    }
     const skills = detectSkills(JSON.stringify({ ...profile, not_claimed: [] }), false);
     for (const s of profile.not_claimed ?? []) skills.delete(s);
     cached = { profile, mtime, skills };

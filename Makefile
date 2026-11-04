@@ -9,15 +9,19 @@ node_modules: package.json package-lock.json
 	cp .env.example .env
 	@echo "Created .env: add your TELEGRAM_BOT_TOKEN, then run make dev again." && exit 1
 
+data/profile.yaml:
+	cp data/profile.example.yaml data/profile.yaml
+	@echo "Created data/profile.yaml: fill it in, then run make again." && exit 1
+
 .PHONY: help dev start fetch jobs rescore typecheck cv
 
 help: ## List the commands
 	@grep -E '^[a-z]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-10s %s\n", $$1, $$2}'
 
-dev: node_modules .env ## Dashboard (localhost:3000) + bot + scheduler, restarting on changes
+dev: node_modules .env data/profile.yaml ## Dashboard (localhost:3000) + bot + scheduler, restarting on changes
 	npm run dev
 
-start: node_modules .env ## Dashboard + bot + scheduler (no auto-restart)
+start: node_modules .env data/profile.yaml ## Dashboard + bot + scheduler (no auto-restart)
 	npm start
 
 fetch: node_modules ## Collect, dedupe and score new jobs now

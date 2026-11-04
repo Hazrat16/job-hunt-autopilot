@@ -2,3 +2,6 @@ node_modules/
 .env
 data/jobs.db*
 output/
+
+# Personal data: never commit. Start from data/profile.example.yaml.
+data/profile.yaml

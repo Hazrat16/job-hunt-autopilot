@@ -1,0 +1,95 @@
+# Example master profile. Copy it to data/profile.yaml (gitignored) and fill it in:
+#   cp data/profile.example.yaml data/profile.yaml
+#
+# The single source of truth for every CV the tool generates.
+# Edit facts here once; never edit a generated CV by hand.
+#
+# Tags decide which CV variant a bullet belongs to:
+#   fullstack, frontend, backend, devops, cloud, ai
+# Bullets that share a `group` are alternative phrasings of the same achievement;
+# the generator picks only the best-matching one per CV.
+
+basics:
+  # name, email, phone and location are best set in .env (PROFILE_NAME, PROFILE_EMAIL,
+  # PROFILE_PHONE, PROFILE_LOCATION). Values in .env override the ones here.
+  name: ""
+  email: ""
+  phone: ""
+  location: ""
+  timezone: GMT+0
+  links:
+    - label: github.com/your-handle
+      url: https://github.com/your-handle
+  # Used in application emails. Leave empty to leave it out.
+  availability: ""
+
+variants:
+  fullstack:
+    title: Full-Stack Engineer
+    summary: >-
+      Full-stack engineer with N years of production experience in React, TypeScript and Node.js.
+    sections: [experience, skills, projects, education]
+  frontend:
+    title: Frontend Engineer
+    summary: Frontend engineer with N years building production React/TypeScript applications.
+    sections: [experience, skills, projects, education]
+  backend:
+    title: Backend Engineer
+    summary: Backend engineer with N years building APIs with Node.js.
+    sections: [experience, skills, projects, education]
+  devops:
+    title: DevOps Engineer
+    summary: Engineer with N years of production experience, working with Docker, CI/CD and AWS.
+    sections: [skills, projects, experience, education]
+  cloud:
+    title: Cloud Engineer
+    summary: Engineer with N years of production experience, working with AWS and Terraform.
+    sections: [skills, projects, experience, education]
+  ai:
+    title: Full-Stack Engineer (AI-assisted development)
+    summary: Full-stack engineer who ships production work with AI coding agents.
+    sections: [ai_practice, experience, skills, projects, education]
+
+ai_practice:
+  - How you use AI tools in real work.
+
+experience:
+  - company: Example Company
+    role: Software Engineer
+    location: Remote
+    start: Jan 2024
+    end: Present
+    bullets:
+      - group: ex-api
+        tags: [fullstack, backend, ai]
+        text: Built REST APIs with Node.js and Express for a billing platform.
+      - group: ex-api
+        tags: [frontend]
+        text: Built the React frontend for a billing platform.
+
+projects:
+  - name: Example Project
+    url: https://github.com/your-handle/example
+    descriptions:
+      - tags: [fullstack, frontend, backend, ai]
+        title: "Example Project: what it is"
+        text: What you built, with which tools, and the result.
+      - tags: [devops, cloud]
+        title: "Example Project: infrastructure"
+        text: How it is deployed and run.
+
+skills:
+  - label: Languages
+    tags: [fullstack, frontend, backend, ai]
+    items: [TypeScript, JavaScript]
+  - label: DevOps
+    tags: [fullstack, devops, cloud]
+    items: [Docker, GitHub Actions, AWS]
+
+# Mentioned above but not real experience: never counted as a match.
+not_claimed: []
+
+education:
+  - school: Example University
+    degree: B.Sc. in Computer Science
+    dates: 2018 – 2022
